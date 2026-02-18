@@ -1,14 +1,11 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
+ * Copyright (c) 2026 Crescio.
  *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
  */
 
-// StreamUiState - DAT Camera Streaming UI State
-//
-// This data class manages UI state for camera streaming operations using the DAT API.
+// Iris: StreamUiState tracks the currently rendered frame and capture status.
 
 package li.crescio.penates.iris.stream
 

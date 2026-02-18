@@ -1,77 +1,75 @@
-# Camera Access App
+# Iris
 
-A sample Android application demonstrating integration with Meta Wearables Device Access Toolkit. This app showcases streaming video from Meta AI glasses, capturing photos, and managing connection states.
+Iris is a compact Android control surface for wearable camera workflows. It focuses on a direct loop: register a device, verify readiness, stream camera output, and capture photos with configurable intervals.
 
-## Features
+## What Iris provides
 
-- Connect to Meta AI glasses
-- Stream camera feed from the device
-- Capture photos from glasses
-- Share captured photos
+- **Registration and connection flow** with clear app states (home, ready-to-stream, active stream)
+- **Live stream + capture UI** built with Jetpack Compose
+- **Capture cadence controls** from an in-app settings page
+- **MockDeviceKit debug tooling** for local QA without physical hardware (debug builds)
+- **Instrumentation coverage** for launch, paired-device, and capture scenarios
 
-## Prerequisites
+## Tech stack
 
-- Android Studio Arctic Fox (2021.3.1) or newer
-- JDK 11 or newer
-- Android SDK 31+ (Android 12.0+)
-- Meta Wearables Device Access Toolkit (included as a dependency)
-- A Meta AI glasses device for testing (optional for development)
+- Kotlin + Coroutines + StateFlow
+- Jetpack Compose (Material 3)
+- Meta Wearables Android toolkit dependencies
+- Android instrumentation tests with Compose test APIs
 
-## Building the app
+## Local setup
 
-### Using Android Studio
+### Prerequisites
 
-1. Clone this repository
-1. Open the project in Android Studio
-1. Add your personal access token (classic) to the `local.properties` file (see [SDK for Android setup](https://wearables.developer.meta.com/docs/getting-started-toolkit/#sdk-for-android-setup))
-1. Click **File** > **Sync Project with Gradle Files**
-1. Click **Run** > **Run...** > **app**
+- Android Studio (recent stable)
+- JDK 11+
+- Android SDK API 31+
+- Token access required for Wearables dependency resolution
 
-## Running the app
+### Credentials
 
-1. Turn 'Developer Mode' on in the Meta AI app.
-1. Launch the app.
-1. Press the "Connect" button to complete app registration.
-1. Once connected, the camera stream from the device will be displayed
-1. Use the on-screen controls to:
-   - Capture photos
-   - View and save captured photos
-   - Disconnect from the device
+1. Create `local.properties` in repository root if missing.
+2. Add the token configuration expected by the dependency setup.
+3. Follow the official setup instructions for the Wearables SDK:
+   - https://wearables.developer.meta.com/docs/getting-started-toolkit/#sdk-for-android-setup
 
-## Troubleshooting
+## Run flow
 
-For issues related to the Meta Wearables Device Access Toolkit, please refer to the [developer documentation](https://wearables.developer.meta.com/docs/develop/) or visit our [discussions forum](https://github.com/facebook/meta-wearables-dat-android/discussions)
+1. Open the project in Android Studio.
+2. Sync Gradle.
+3. Run `app` on a phone/device target.
+4. In Iris:
+   - Grant Android runtime permissions.
+   - Complete registration with your wearable account/device.
+   - Start streaming once an active device is available.
+   - Capture photos and adjust interval settings from the settings page.
+
+## Test flow
+
+- Instrumentation tests are under:
+  - `app/src/androidTest/java/li/crescio/penates/iris`
+- Typical validation includes app launch, mock pairing behavior, and stream capture interactions.
+
+## Support links
+
+- Wearables docs: https://wearables.developer.meta.com/docs/develop/
+- Toolkit discussions: https://github.com/facebook/meta-wearables-dat-android/discussions
+- Iris issues: use this repository issue tracker for product bugs and feature requests
+
+## CI/CD
+
+The GitHub Actions workflow `.github/workflows/firebase-app-distribution.yml` can:
+
+1. Build release APK (`:app:assembleRelease`)
+2. Publish to Firebase App Distribution
+
+### Required secrets
+
+- `MWDAT_GITHUB_TOKEN`
+- `FIREBASE_APP_ID`
+- `FIREBASE_SERVICE_ACCOUNT_JSON`
+- `FIREBASE_TESTER_GROUPS` *(optional)*
 
 ## License
 
-This source code is licensed under the license found in the LICENSE file in the root directory of this source tree.
-
-## CI: APK build and Firebase App Distribution
-
-This repository includes a GitHub Actions workflow at `.github/workflows/firebase-app-distribution.yml` that:
-
-1. Builds the release APK (`:app:assembleRelease`)
-2. Uploads the generated APK to Firebase App Distribution
-
-It runs automatically on pushes to `main` and can also be started manually from **Actions** > **Build and distribute APK**.
-
-### Required GitHub Actions secrets
-
-Configure these repository secrets in **GitHub** > **Settings** > **Secrets and variables** > **Actions**:
-
-1. `MWDAT_GITHUB_TOKEN`
-   - A GitHub personal access token that can read `facebook/meta-wearables-dat-android` packages.
-   - The workflow exports this token as `GITHUB_TOKEN` so Gradle can resolve the Meta Wearables dependency.
-2. `FIREBASE_APP_ID`
-   - The Firebase Android app ID (format similar to `1:1234567890:android:abcdef123456`).
-   - Find it in Firebase console under **Project settings** > **Your apps**.
-3. `FIREBASE_SERVICE_ACCOUNT_JSON`
-   - The full JSON content of a Firebase service account key.
-   - Create in **Google Cloud Console** for your Firebase project and grant access suitable for Firebase App Distribution uploads.
-4. `FIREBASE_TESTER_GROUPS` (optional but recommended)
-   - Comma-separated Firebase App Distribution tester groups (for example: `qa-team,android-devs`).
-
-### Manual run options
-
-When manually triggering the workflow (`workflow_dispatch`), you can provide `release_notes`.
-If omitted, release notes default to the branch and commit SHA.
+Distributed under the terms in `LICENSE`.

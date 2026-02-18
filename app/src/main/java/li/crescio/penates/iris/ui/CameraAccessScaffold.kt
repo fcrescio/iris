@@ -1,26 +1,11 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
+ * Copyright (c) 2026 Crescio.
  *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
  */
 
-// CameraAccessScaffold - DAT Application Navigation Orchestrator
-//
-// This scaffold demonstrates a typical DAT application navigation pattern based on device
-// registration and streaming states from the DAT API.
-//
-// DAT State-Based Navigation:
-// - HomeScreen: When NOT registered (uiState.isRegistered = false) Shows initial registration UI
-//   calling Wearables.startRegistration()
-// - NonStreamScreen: When registered (uiState.isRegistered = true) but not streaming Shows device
-//   selection, permission checking, and pre-streaming setup
-// - StreamScreen: When actively streaming (uiState.isStreaming = true) Shows live video from
-//   StreamSession.videoStream and photo capture UI
-//
-// The scaffold also provides a debug menu (in DEBUG builds) that gives access to
-// MockDeviceKitScreen for testing DAT functionality without physical devices.
+// Iris: CameraAccessScaffold routes UI states and surfaces actionable errors.
 
 package li.crescio.penates.iris.ui
 
@@ -66,14 +51,13 @@ fun CameraAccessScaffold(
     onRequestWearablesPermission: suspend (Permission) -> PermissionStatus,
     modifier: Modifier = Modifier,
 ) {
-  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+  val state by viewModel.uiState.collectAsStateWithLifecycle()
   val snackbarHostState = remember { SnackbarHostState() }
-  val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+  val debugSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-  // Observe camera permission errors and show snackbar
-  LaunchedEffect(uiState.recentError) {
-    uiState.recentError?.let { errorMessage ->
-      snackbarHostState.showSnackbar(errorMessage)
+  LaunchedEffect(state.recentError) {
+    state.recentError?.let {
+      snackbarHostState.showSnackbar(it)
       viewModel.clearCameraPermissionError()
     }
   }
@@ -81,19 +65,13 @@ fun CameraAccessScaffold(
   Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Box(modifier = Modifier.fillMaxSize()) {
       when {
-        uiState.isStreaming ->
-            StreamScreen(
-                wearablesViewModel = viewModel,
-            )
-        uiState.isRegistered ->
+        state.isStreaming -> StreamScreen(wearablesViewModel = viewModel)
+        state.isRegistered ->
             NonStreamScreen(
                 viewModel = viewModel,
                 onRequestWearablesPermission = onRequestWearablesPermission,
             )
-        else ->
-            HomeScreen(
-                viewModel = viewModel,
-            )
+        else -> HomeScreen(viewModel = viewModel)
       }
 
       SnackbarHost(
@@ -109,11 +87,7 @@ fun CameraAccessScaffold(
                 contentColor = MaterialTheme.colorScheme.onErrorContainer,
             ) {
               Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Error,
-                    contentDescription = "Camera Access error",
-                    tint = MaterialTheme.colorScheme.error,
-                )
+                Icon(Icons.Default.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(data.visuals.message)
               }
@@ -122,17 +96,14 @@ fun CameraAccessScaffold(
       )
 
       if (BuildConfig.DEBUG) {
-        FloatingActionButton(
-            onClick = { viewModel.showDebugMenu() },
-            modifier = Modifier.align(Alignment.CenterEnd),
-        ) {
-          Icon(Icons.Default.BugReport, contentDescription = "Debug Menu")
+        FloatingActionButton(onClick = viewModel::showDebugMenu, modifier = Modifier.align(Alignment.CenterEnd)) {
+          Icon(Icons.Default.BugReport, contentDescription = "Debug menu")
         }
 
-        if (uiState.isDebugMenuVisible) {
+        if (state.isDebugMenuVisible) {
           ModalBottomSheet(
-              onDismissRequest = { viewModel.hideDebugMenu() },
-              sheetState = bottomSheetState,
+              onDismissRequest = viewModel::hideDebugMenu,
+              sheetState = debugSheetState,
               modifier = Modifier.fillMaxSize(),
           ) {
             MockDeviceKitScreen(modifier = Modifier.fillMaxSize())

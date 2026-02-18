@@ -1,15 +1,11 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
+ * Copyright (c) 2026 Crescio.
  *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
  */
 
-// MockDeviceKitScreen - DAT Testing Interface
-//
-// This screen allows developers to simulate wearable devices and test DAT functionality without
-// hardware.
+// Iris: MockDeviceKitScreen provides compact controls for simulator-driven QA.
 
 package li.crescio.penates.iris.ui
 
@@ -20,6 +16,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -53,56 +50,159 @@ fun MockDeviceKitScreen(
     modifier: Modifier = Modifier,
     viewModel: MockDeviceKitViewModel = viewModel(LocalActivity.current as ComponentActivity),
 ) {
-  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+  val state by viewModel.uiState.collectAsStateWithLifecycle()
 
   Column(
       modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp),
   ) {
-    Card(
+    HeaderCard(
+        pairedCount = state.pairedDevices.size,
+        onPair = viewModel::pairRaybanMeta,
+        canPairMore = state.pairedDevices.size < 3,
+    )
+
+    state.pairedDevices.forEach { info -> MockDeviceCard(deviceInfo = info, viewModel = viewModel) }
+  }
+}
+
+@Composable
+private fun HeaderCard(pairedCount: Int, onPair: () -> Unit, canPairMore: Boolean) {
+  SurfaceCard {
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-      Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-          Text(
-              text = stringResource(R.string.mock_device_kit_title),
-              style = MaterialTheme.typography.headlineSmall,
-              fontWeight = FontWeight.Bold,
-          )
-          Text(
-              text = stringResource(R.string.devices_paired_count, uiState.pairedDevices.size),
-              style = MaterialTheme.typography.bodyMedium,
-              color = AppColor.Green,
-              textAlign = TextAlign.Center,
-          )
-        }
+      Text(
+          text = stringResource(R.string.mock_device_kit_title),
+          style = MaterialTheme.typography.headlineSmall,
+          fontWeight = FontWeight.Bold,
+      )
+      Text(
+          text = stringResource(R.string.devices_paired_count, pairedCount),
+          style = MaterialTheme.typography.bodyMedium,
+          color = AppColor.Green,
+      )
+    }
+
+    Text(
+        text = stringResource(R.string.mock_device_kit_description),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    HorizontalDivider()
+
+    ActionButton(
+        modifier = Modifier.fillMaxWidth(),
+        text = stringResource(R.string.pair_rayban_meta),
+        onClick = onPair,
+        enabled = canPairMore,
+    )
+  }
+}
+
+@Composable
+private fun MockDeviceCard(deviceInfo: MockDeviceInfo, viewModel: MockDeviceKitViewModel) {
+  val videoPicker =
+      rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let { viewModel.setCameraFeed(deviceInfo, it) }
+      }
+  val imagePicker =
+      rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let { viewModel.setCapturedImage(deviceInfo, it) }
+      }
+
+  SurfaceCard {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Column {
+        Text(deviceInfo.deviceName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Text(
-            text = stringResource(R.string.mock_device_kit_description),
-            style = MaterialTheme.typography.bodyMedium,
+            deviceInfo.deviceId,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        HorizontalDivider()
-
-        ActionButton(
-            modifier = Modifier.fillMaxWidth(),
-            text = stringResource(R.string.pair_rayban_meta),
-            onClick = { viewModel.pairRaybanMeta() },
-            enabled = uiState.pairedDevices.size < 3,
-        )
       }
+      ActionButton(
+          text = stringResource(R.string.unpair),
+          onClick = { viewModel.unpairDevice(deviceInfo) },
+          containerColor = AppColor.Red,
+      )
     }
 
-    if (uiState.pairedDevices.isNotEmpty()) {
-      uiState.pairedDevices.forEach { deviceInfo ->
-        MockDeviceCard(deviceInfo = deviceInfo, viewModel = viewModel)
-      }
-    }
+    HorizontalDivider()
+    ControlRow(
+        stringResource(R.string.power_on) to { viewModel.powerOn(deviceInfo) },
+        stringResource(R.string.power_off) to { viewModel.powerOff(deviceInfo) },
+    )
+    ControlRow(
+        stringResource(R.string.unfold) to { viewModel.unfold(deviceInfo) },
+        stringResource(R.string.fold) to { viewModel.fold(deviceInfo) },
+    )
+    ControlRow(
+        stringResource(R.string.don) to { viewModel.don(deviceInfo) },
+        stringResource(R.string.doff) to { viewModel.doff(deviceInfo) },
+    )
+
+    MediaRow(
+        actionLabel = stringResource(R.string.select_video),
+        onPick = { videoPicker.launch("video/*") },
+        status =
+            if (deviceInfo.hasCameraFeed) stringResource(R.string.has_camera_feed)
+            else stringResource(R.string.no_camera_feed),
+        statusPositive = deviceInfo.hasCameraFeed,
+    )
+    MediaRow(
+        actionLabel = stringResource(R.string.select_image),
+        onPick = { imagePicker.launch("image/*") },
+        status =
+            if (deviceInfo.hasCapturedImage) stringResource(R.string.has_captured_image)
+            else stringResource(R.string.no_captured_image),
+        statusPositive = deviceInfo.hasCapturedImage,
+    )
+  }
+}
+
+@Composable
+private fun SurfaceCard(content: @Composable ColumnScope.() -> Unit) {
+  Card(
+      modifier = Modifier.fillMaxWidth(),
+      elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+  ) {
+    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
+  }
+}
+
+@Composable
+private fun ControlRow(
+    first: Pair<String, () -> Unit>,
+    second: Pair<String, () -> Unit>,
+) {
+  Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    ActionButton(text = first.first, onClick = first.second, modifier = Modifier.weight(1f))
+    ActionButton(text = second.first, onClick = second.second, modifier = Modifier.weight(1f))
+  }
+}
+
+@Composable
+private fun MediaRow(actionLabel: String, onPick: () -> Unit, status: String, statusPositive: Boolean) {
+  Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+      verticalAlignment = Alignment.CenterVertically,
+  ) {
+    ActionButton(text = actionLabel, onClick = onPick, modifier = Modifier.weight(1f))
+    Text(
+        text = status,
+        color = if (statusPositive) AppColor.Green else AppColor.Yellow,
+        textAlign = TextAlign.Left,
+        modifier = Modifier.weight(1f).padding(start = 8.dp),
+    )
   }
 }
 
@@ -117,161 +217,10 @@ private fun ActionButton(
 ) {
   Button(
       modifier = modifier,
-      colors =
-          ButtonDefaults.buttonColors(
-              containerColor = containerColor,
-              contentColor = contentColor,
-          ),
+      colors = ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = contentColor),
       onClick = onClick,
       enabled = enabled,
   ) {
     Text(text, fontWeight = FontWeight.Medium)
-  }
-}
-
-@Composable
-private fun StatusText(
-    hasContent: Boolean,
-    positiveText: String,
-    negativeText: String,
-    modifier: Modifier = Modifier,
-) {
-  Text(
-      modifier = modifier,
-      text = if (hasContent) positiveText else negativeText,
-      style = MaterialTheme.typography.bodyMedium,
-      color = if (hasContent) AppColor.Green else AppColor.Yellow,
-      textAlign = TextAlign.Left,
-  )
-}
-
-@Composable
-private fun MockDeviceCard(
-    deviceInfo: MockDeviceInfo,
-    viewModel: MockDeviceKitViewModel,
-) {
-  val videoPickerLauncher =
-      rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri: Uri?
-        ->
-        uri?.let { selectedUri -> viewModel.setCameraFeed(deviceInfo, selectedUri) }
-      }
-  val imagePickerLauncher =
-      rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri: Uri?
-        ->
-        uri?.let { selectedUri -> viewModel.setCapturedImage(deviceInfo, selectedUri) }
-      }
-
-  Card(
-      modifier = Modifier.fillMaxWidth(),
-      elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-  ) {
-    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-      // Device header
-      Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically,
-      ) {
-        Column {
-          Text(
-              text = deviceInfo.deviceName,
-              style = MaterialTheme.typography.titleMedium,
-              fontWeight = FontWeight.SemiBold,
-          )
-          Text(
-              text = deviceInfo.deviceId,
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
-        ActionButton(
-            text = stringResource(R.string.unpair),
-            onClick = { viewModel.unpairDevice(deviceInfo) },
-            containerColor = AppColor.Red,
-        )
-      }
-
-      HorizontalDivider()
-
-      // Power controls
-      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ActionButton(
-            text = stringResource(R.string.power_on),
-            onClick = { viewModel.powerOn(deviceInfo) },
-            modifier = Modifier.weight(1f),
-        )
-        ActionButton(
-            text = stringResource(R.string.power_off),
-            onClick = { viewModel.powerOff(deviceInfo) },
-            modifier = Modifier.weight(1f),
-        )
-      }
-
-      // Fold/Unfold controls
-      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ActionButton(
-            text = stringResource(R.string.unfold),
-            onClick = { viewModel.unfold(deviceInfo) },
-            modifier = Modifier.weight(1f),
-        )
-        ActionButton(
-            text = stringResource(R.string.fold),
-            onClick = { viewModel.fold(deviceInfo) },
-            modifier = Modifier.weight(1f),
-        )
-      }
-
-      // Don/Doff controls
-      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ActionButton(
-            text = stringResource(R.string.don),
-            onClick = { viewModel.don(deviceInfo) },
-            modifier = Modifier.weight(1f),
-        )
-        ActionButton(
-            text = stringResource(R.string.doff),
-            onClick = { viewModel.doff(deviceInfo) },
-            modifier = Modifier.weight(1f),
-        )
-      }
-
-      // Media selection buttons
-      Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-          verticalAlignment = Alignment.CenterVertically,
-      ) {
-        ActionButton(
-            text = stringResource(R.string.select_video),
-            onClick = { videoPickerLauncher.launch("video/*") },
-            modifier = Modifier.weight(1f),
-        )
-        StatusText(
-            hasContent = deviceInfo.hasCameraFeed,
-            positiveText = stringResource(R.string.has_camera_feed),
-            negativeText = stringResource(R.string.no_camera_feed),
-            modifier = Modifier.weight(1f).padding(start = 8.dp),
-        )
-      }
-
-      Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-          verticalAlignment = Alignment.CenterVertically,
-      ) {
-        ActionButton(
-            text = stringResource(R.string.select_image),
-            onClick = { imagePickerLauncher.launch("image/*") },
-            modifier = Modifier.weight(1f),
-        )
-        StatusText(
-            hasContent = deviceInfo.hasCapturedImage,
-            positiveText = stringResource(R.string.has_captured_image),
-            negativeText = stringResource(R.string.no_captured_image),
-            modifier = Modifier.weight(1f).padding(start = 8.dp),
-        )
-      }
-    }
   }
 }

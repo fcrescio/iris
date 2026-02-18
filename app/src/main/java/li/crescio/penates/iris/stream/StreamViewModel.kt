@@ -1,18 +1,11 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
+ * Copyright (c) 2026 Crescio.
  *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
  */
 
-// StreamViewModel - DAT Camera Streaming API Demo
-//
-// This ViewModel demonstrates the DAT Camera Streaming APIs for:
-// - Creating and managing stream sessions with wearable devices
-// - Keeping a stream session alive for periodic photo capture
-// - Capturing photos during streaming sessions
-// - Handling different video qualities and formats
+// Iris: StreamViewModel manages session lifecycle, auto capture, and image decoding.
 
 package li.crescio.penates.iris.stream
 
@@ -34,7 +27,6 @@ import com.meta.wearable.dat.camera.types.StreamSessionState
 import com.meta.wearable.dat.camera.types.VideoQuality
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.DeviceSelector
-import li.crescio.penates.iris.wearables.WearablesViewModel
 import java.io.ByteArrayInputStream
 import java.io.IOException
 import kotlinx.coroutines.Job
@@ -44,43 +36,44 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import li.crescio.penates.iris.wearables.WearablesViewModel
 
 class StreamViewModel(
     application: Application,
-    private val wearablesViewModel: WearablesViewModel,
+    wearablesViewModel: WearablesViewModel,
 ) : AndroidViewModel(application) {
 
   companion object {
     private const val TAG = "StreamViewModel"
-    private val INITIAL_STATE = StreamUiState()
+    private val INITIAL = StreamUiState()
   }
 
   private val deviceSelector: DeviceSelector = wearablesViewModel.deviceSelector
-  private var streamSession: StreamSession? = null
+  private val _uiState = MutableStateFlow(INITIAL)
 
-  private val _uiState = MutableStateFlow(INITIAL_STATE)
   val uiState: StateFlow<StreamUiState> = _uiState.asStateFlow()
 
-  private var stateJob: Job? = null
-  private var captureJob: Job? = null
+  private var streamSession: StreamSession? = null
+  private var streamStateJob: Job? = null
+  private var autoCaptureJob: Job? = null
 
   fun startStream() {
-    stateJob?.cancel()
-    val streamSession =
-        Wearables.startStreamSession(
-                getApplication(),
-                deviceSelector,
-                StreamConfiguration(videoQuality = VideoQuality.LOW, 1),
-            )
-            .also { streamSession = it }
-    stateJob =
-        viewModelScope.launch {
-          streamSession.state.collect { currentState ->
-            val prevState = _uiState.value.streamSessionState
-            _uiState.update { it.copy(streamSessionState = currentState) }
+    stopStream()
 
-            // navigate back when state transitioned to STOPPED
-            if (currentState != prevState && currentState == StreamSessionState.STOPPED) {
+    val newSession =
+        Wearables.startStreamSession(
+            getApplication(),
+            deviceSelector,
+            StreamConfiguration(videoQuality = VideoQuality.LOW, autoExposure = 1),
+        )
+
+    streamSession = newSession
+    streamStateJob =
+        viewModelScope.launch {
+          newSession.state.collect { state ->
+            val previous = _uiState.value.streamSessionState
+            _uiState.update { it.copy(streamSessionState = state) }
+            if (previous != state && state == StreamSessionState.STOPPED) {
               stopStream()
               wearablesViewModel.navigateToDeviceSelection()
             }
@@ -89,159 +82,104 @@ class StreamViewModel(
   }
 
   fun stopStream() {
-    captureJob?.cancel()
-    captureJob = null
-    stateJob?.cancel()
-    stateJob = null
+    stopAutoCapture()
+    streamStateJob?.cancel()
+    streamStateJob = null
     streamSession?.close()
     streamSession = null
-    _uiState.update { INITIAL_STATE }
+    _uiState.update { INITIAL }
   }
 
-  fun startAutoCapture(intervalMs: Long = 1000) {
-    captureJob?.cancel()
-    captureJob = viewModelScope.launch {
-      while (true) {
-        capturePhoto()
-        delay(intervalMs)
-      }
-    }
+  fun startAutoCapture(intervalMs: Long = 1_000L) {
+    stopAutoCapture()
+    autoCaptureJob =
+        viewModelScope.launch {
+          while (true) {
+            capturePhoto()
+            delay(intervalMs)
+          }
+        }
   }
 
   fun stopAutoCapture() {
-    captureJob?.cancel()
-    captureJob = null
+    autoCaptureJob?.cancel()
+    autoCaptureJob = null
   }
 
   fun capturePhoto() {
-    if (uiState.value.isCapturing) {
-      Log.d(TAG, "Photo capture already in progress, ignoring request")
-      return
-    }
+    val state = _uiState.value
+    if (state.isCapturing || state.streamSessionState != StreamSessionState.STREAMING) return
 
-    if (uiState.value.streamSessionState == StreamSessionState.STREAMING) {
-      Log.d(TAG, "Starting photo capture")
-      _uiState.update { it.copy(isCapturing = true) }
-
-      viewModelScope.launch {
-        streamSession
-            ?.capturePhoto()
-            ?.onSuccess { photoData ->
-              Log.d(TAG, "Photo capture successful")
-              handlePhotoData(photoData)
-              _uiState.update { it.copy(isCapturing = false) }
-            }
-            ?.onFailure {
-              Log.e(TAG, "Photo capture failed")
-              _uiState.update { it.copy(isCapturing = false) }
-            }
-      }
-    } else {
-      Log.w(
-          TAG,
-          "Cannot capture photo: stream not active (state=${uiState.value.streamSessionState})",
-      )
+    _uiState.update { it.copy(isCapturing = true) }
+    viewModelScope.launch {
+      streamSession
+          ?.capturePhoto()
+          ?.onSuccess { _uiState.update { current -> current.copy(capturedPhoto = decodePhoto(it)) } }
+          ?.onFailure { Log.e(TAG, "Photo capture failed") }
+      _uiState.update { it.copy(isCapturing = false) }
     }
   }
 
-  private fun handlePhotoData(photo: PhotoData) {
-    val capturedPhoto =
-        when (photo) {
-          is PhotoData.Bitmap -> photo.bitmap
-          is PhotoData.HEIC -> {
-            val byteArray = ByteArray(photo.data.remaining())
-            photo.data.get(byteArray)
+  private fun decodePhoto(photoData: PhotoData): Bitmap =
+      when (photoData) {
+        is PhotoData.Bitmap -> photoData.bitmap
+        is PhotoData.HEIC -> decodeHeic(photoData)
+      }
 
-            // Extract EXIF transformation matrix and apply to bitmap
-            val exifInfo = getExifInfo(byteArray)
-            val transform = getTransform(exifInfo)
-            decodeHeic(byteArray, transform)
+  private fun decodeHeic(photoData: PhotoData.HEIC): Bitmap {
+    val bytes = ByteArray(photoData.data.remaining()).also(photoData.data::get)
+    val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    val transform = readExifTransform(bytes)
+    return applyTransform(source, transform)
+  }
+
+  private fun readExifTransform(bytes: ByteArray): Matrix {
+    val orientation =
+        try {
+          ByteArrayInputStream(bytes).use { input ->
+            ExifInterface(input)
+                .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
           }
+        } catch (error: IOException) {
+          Log.w(TAG, "Failed to read EXIF from HEIC", error)
+          ExifInterface.ORIENTATION_NORMAL
         }
-    _uiState.update { it.copy(capturedPhoto = capturedPhoto) }
-  }
 
-  // HEIC Decoding with EXIF transformation
-  private fun decodeHeic(heicBytes: ByteArray, transform: Matrix): Bitmap {
-    val bitmap = BitmapFactory.decodeByteArray(heicBytes, 0, heicBytes.size)
-    return applyTransform(bitmap, transform)
-  }
-
-  private fun getExifInfo(heicBytes: ByteArray): ExifInterface? {
-    return try {
-      ByteArrayInputStream(heicBytes).use { inputStream -> ExifInterface(inputStream) }
-    } catch (e: IOException) {
-      Log.w(TAG, "Failed to read EXIF from HEIC", e)
-      null
+    return Matrix().apply {
+      when (orientation) {
+        ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> postScale(-1f, 1f)
+        ExifInterface.ORIENTATION_ROTATE_180 -> postRotate(180f)
+        ExifInterface.ORIENTATION_FLIP_VERTICAL -> postScale(1f, -1f)
+        ExifInterface.ORIENTATION_TRANSPOSE -> {
+          postRotate(90f)
+          postScale(-1f, 1f)
+        }
+        ExifInterface.ORIENTATION_ROTATE_90 -> postRotate(90f)
+        ExifInterface.ORIENTATION_TRANSVERSE -> {
+          postRotate(270f)
+          postScale(-1f, 1f)
+        }
+        ExifInterface.ORIENTATION_ROTATE_270 -> postRotate(270f)
+      }
     }
   }
 
-  private fun getTransform(exifInfo: ExifInterface?): Matrix {
-    val matrix = Matrix()
-
-    if (exifInfo == null) {
-      return matrix // Identity matrix (no transformation)
-    }
-
-    when (
-        exifInfo.getAttributeInt(
-            ExifInterface.TAG_ORIENTATION,
-            ExifInterface.ORIENTATION_NORMAL,
-        )
-    ) {
-      ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> {
-        matrix.postScale(-1f, 1f)
-      }
-      ExifInterface.ORIENTATION_ROTATE_180 -> {
-        matrix.postRotate(180f)
-      }
-      ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
-        matrix.postScale(1f, -1f)
-      }
-      ExifInterface.ORIENTATION_TRANSPOSE -> {
-        matrix.postRotate(90f)
-        matrix.postScale(-1f, 1f)
-      }
-      ExifInterface.ORIENTATION_ROTATE_90 -> {
-        matrix.postRotate(90f)
-      }
-      ExifInterface.ORIENTATION_TRANSVERSE -> {
-        matrix.postRotate(270f)
-        matrix.postScale(-1f, 1f)
-      }
-      ExifInterface.ORIENTATION_ROTATE_270 -> {
-        matrix.postRotate(270f)
-      }
-      ExifInterface.ORIENTATION_NORMAL,
-      ExifInterface.ORIENTATION_UNDEFINED -> {
-        // No transformation needed
-      }
-    }
-
-    return matrix
-  }
-
-  private fun applyTransform(bitmap: Bitmap, matrix: Matrix): Bitmap {
-    if (matrix.isIdentity) {
-      return bitmap
-    }
+  private fun applyTransform(bitmap: Bitmap, transform: Matrix): Bitmap {
+    if (transform.isIdentity) return bitmap
 
     return try {
-      val transformed = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-      if (transformed != bitmap) {
-        bitmap.recycle()
+      Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, transform, true).also {
+        if (it != bitmap) bitmap.recycle()
       }
-      transformed
-    } catch (e: OutOfMemoryError) {
-      Log.e(TAG, "Failed to apply transformation due to memory", e)
+    } catch (oom: OutOfMemoryError) {
+      Log.e(TAG, "Failed to rotate/mirror image", oom)
       bitmap
     }
   }
 
   override fun onCleared() {
-    super.onCleared()
     stopStream()
-    stateJob?.cancel()
+    super.onCleared()
   }
 
   class Factory(
@@ -251,11 +189,7 @@ class StreamViewModel(
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
       if (modelClass.isAssignableFrom(StreamViewModel::class.java)) {
         @Suppress("UNCHECKED_CAST", "KotlinGenericsCast")
-        return StreamViewModel(
-            application = application,
-            wearablesViewModel = wearablesViewModel,
-        )
-            as T
+        return StreamViewModel(application, wearablesViewModel) as T
       }
       throw IllegalArgumentException("Unknown ViewModel class")
     }
