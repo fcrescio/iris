@@ -38,6 +38,7 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/google-services.json"
+          echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > "app/google-services.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/google-services.json" >> "$GITHUB_ENV"
 
       - name: Build release APK
