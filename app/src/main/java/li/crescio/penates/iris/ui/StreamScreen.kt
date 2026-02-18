@@ -106,16 +106,4 @@ fun StreamScreen(
     }
   }
 
-  streamUiState.capturedPhoto?.let { photo ->
-    if (streamUiState.isShareDialogVisible) {
-      SharePhotoDialog(
-          photo = photo,
-          onDismiss = { streamViewModel.hideShareDialog() },
-          onShare = { bitmap ->
-            streamViewModel.sharePhoto(bitmap)
-            streamViewModel.hideShareDialog()
-          },
-      )
-    }
-  }
 }

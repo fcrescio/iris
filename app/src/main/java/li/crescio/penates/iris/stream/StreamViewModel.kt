@@ -17,12 +17,10 @@
 package li.crescio.penates.iris.stream
 
 import android.app.Application
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.util.Log
-import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -38,8 +36,6 @@ import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.DeviceSelector
 import li.crescio.penates.iris.wearables.WearablesViewModel
 import java.io.ByteArrayInputStream
-import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -106,7 +102,7 @@ class StreamViewModel(
     captureJob?.cancel()
     captureJob = viewModelScope.launch {
       while (true) {
-        capturePhoto(showShareDialog = false)
+        capturePhoto()
         delay(intervalMs)
       }
     }
@@ -117,7 +113,7 @@ class StreamViewModel(
     captureJob = null
   }
 
-  fun capturePhoto(showShareDialog: Boolean = true) {
+  fun capturePhoto() {
     if (uiState.value.isCapturing) {
       Log.d(TAG, "Photo capture already in progress, ignoring request")
       return
@@ -132,7 +128,7 @@ class StreamViewModel(
             ?.capturePhoto()
             ?.onSuccess { photoData ->
               Log.d(TAG, "Photo capture successful")
-              handlePhotoData(photoData, showShareDialog)
+              handlePhotoData(photoData)
               _uiState.update { it.copy(isCapturing = false) }
             }
             ?.onFailure {
@@ -148,40 +144,7 @@ class StreamViewModel(
     }
   }
 
-  fun showShareDialog() {
-    _uiState.update { it.copy(isShareDialogVisible = true) }
-  }
-
-  fun hideShareDialog() {
-    _uiState.update { it.copy(isShareDialogVisible = false) }
-  }
-
-  fun sharePhoto(bitmap: Bitmap) {
-    val context = getApplication<Application>()
-    val imagesFolder = File(context.cacheDir, "images")
-    try {
-      imagesFolder.mkdirs()
-      val file = File(imagesFolder, "shared_image.png")
-      FileOutputStream(file).use { stream ->
-        bitmap.compress(Bitmap.CompressFormat.PNG, 90, stream)
-      }
-
-      val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-      val intent = Intent(Intent.ACTION_SEND)
-      intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-      intent.putExtra(Intent.EXTRA_STREAM, uri)
-      intent.type = "image/png"
-      intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-
-      val chooser = Intent.createChooser(intent, "Share Image")
-      chooser.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-      context.startActivity(chooser)
-    } catch (e: IOException) {
-      Log.e("StreamViewModel", "Failed to share photo", e)
-    }
-  }
-
-  private fun handlePhotoData(photo: PhotoData, showShareDialog: Boolean) {
+  private fun handlePhotoData(photo: PhotoData) {
     val capturedPhoto =
         when (photo) {
           is PhotoData.Bitmap -> photo.bitmap
@@ -195,7 +158,7 @@ class StreamViewModel(
             decodeHeic(byteArray, transform)
           }
         }
-    _uiState.update { it.copy(capturedPhoto = capturedPhoto, isShareDialogVisible = showShareDialog) }
+    _uiState.update { it.copy(capturedPhoto = capturedPhoto) }
   }
 
   // HEIC Decoding with EXIF transformation
