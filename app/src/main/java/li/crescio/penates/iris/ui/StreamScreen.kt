@@ -63,10 +63,10 @@ fun StreamScreen(
   }
 
   Box(modifier = modifier.fillMaxSize()) {
-    streamUiState.videoFrame?.let { videoFrame ->
+    streamUiState.capturedPhoto?.let { capturedPhoto ->
       Image(
-          bitmap = videoFrame.asImageBitmap(),
-          contentDescription = stringResource(R.string.live_stream),
+          bitmap = capturedPhoto.asImageBitmap(),
+          contentDescription = stringResource(R.string.captured_photo),
           modifier = Modifier.fillMaxSize(),
           contentScale = ContentScale.Crop,
       )

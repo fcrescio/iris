@@ -85,7 +85,6 @@ class InstrumentationTest {
   @Test
   fun startThenStopStreaming() {
     val startStreamButtonTitle = targetContext.getString(R.string.stream_button_title)
-    val streamContentDescription = targetContext.getString(R.string.live_stream)
     val captureButtonIcon = targetContext.getString(R.string.capture_photo)
     val capturedImageContentDescription = targetContext.getString(R.string.captured_photo)
 
@@ -98,14 +97,14 @@ class InstrumentationTest {
     mockCameraKit.setCameraFeed(getFileUri("plant.mp4"))
     mockCameraKit.setCapturedImage(getFileUri("plant.png"))
 
-    // Start streaming and verify stream is displayed
+    // Start streaming and verify periodic capture image is displayed
     composeTestRule.onNodeWithText(startStreamButtonTitle).performClick()
     composeTestRule.waitUntilExactlyOneExists(
-        hasContentDescription(streamContentDescription),
-        timeoutMillis = 5000,
+        hasContentDescription(capturedImageContentDescription),
+        timeoutMillis = 15000,
     )
 
-    // Trigger capture and verify captured image is displayed
+    // Trigger manual capture and verify captured image is still displayed
     composeTestRule.onNodeWithContentDescription(captureButtonIcon).performClick()
     composeTestRule.waitUntilExactlyOneExists(
         hasContentDescription(capturedImageContentDescription),
