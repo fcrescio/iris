@@ -33,17 +33,17 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Build release APK
-        env:
-          GITHUB_TOKEN: ${{ secrets.MWDAT_GITHUB_TOKEN }}
-        run: ./gradlew --no-daemon :app:assembleRelease
-
       - name: Prepare Firebase service account credentials
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/google-services.json"
-          #echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/google-services.json" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        env:
+          GITHUB_TOKEN: ${{ secrets.MWDAT_GITHUB_TOKEN }}
+        run: ./gradlew --no-daemon :app:assembleRelease
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
