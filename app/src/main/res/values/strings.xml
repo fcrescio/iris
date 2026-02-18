@@ -23,11 +23,8 @@
     <string name="non_stream_screen_title" description="Non stream screen title">Stream Your Glasses Camera</string>
     <string name="waiting_for_active_device" description="Waiting for active device message">Waiting for an active device</string>
 
-    <!-- SharePhotoDialog -->
-    <string name="photo_captured" description="Photo Captured">Photo Captured</string>
     <string name ="captured_photo" description="Captured Photo">Captured Photo</string>
     <string name ="capture_photo" description="Capture Photo">Capture Photo</string>
-    <string name="share" description="Share">Share</string>
 
     <!-- Mock Device Kit Screen -->
     <string name="mock_device_kit_title" description="Mock Device Kit Title">Mock Device Kit</string>
