@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meta.wearable.dat.camera.types.StreamSessionState
 import li.crescio.penates.iris.R
+import li.crescio.penates.iris.stream.StreamUiState
 import li.crescio.penates.iris.stream.StreamViewModel
 import li.crescio.penates.iris.wearables.WearablesViewModel
 
@@ -55,14 +58,48 @@ fun StreamScreen(
         ),
 ) {
   val streamUiState by streamViewModel.uiState.collectAsStateWithLifecycle()
+  val wearablesUiState by wearablesViewModel.uiState.collectAsStateWithLifecycle()
+  val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
 
   LaunchedEffect(Unit) {
     streamViewModel.startStream()
-    // Start auto-capture every 1 second (1000ms)
-    streamViewModel.startAutoCapture(1000)
   }
 
-  Box(modifier = modifier.fillMaxSize()) {
+  LaunchedEffect(wearablesUiState.photoIntervalMs) {
+    streamViewModel.startAutoCapture(wearablesUiState.photoIntervalMs)
+  }
+
+  HorizontalPager(
+      state = pagerState,
+      modifier = modifier.fillMaxSize(),
+  ) { page ->
+    when (page) {
+      0 ->
+          StreamCameraPage(
+              streamUiState = streamUiState,
+              onStopStreaming = {
+                streamViewModel.stopAutoCapture()
+                streamViewModel.stopStream()
+                wearablesViewModel.navigateToDeviceSelection()
+              },
+              onCapturePhoto = { streamViewModel.capturePhoto() },
+          )
+      1 ->
+          SettingsScreen(
+              photoIntervalMs = wearablesUiState.photoIntervalMs,
+              onPhotoIntervalChange = wearablesViewModel::setPhotoIntervalMs,
+          )
+    }
+  }
+}
+
+@Composable
+private fun StreamCameraPage(
+    streamUiState: StreamUiState,
+    onStopStreaming: () -> Unit,
+    onCapturePhoto: () -> Unit,
+) {
+  Box(modifier = Modifier.fillMaxSize()) {
     streamUiState.capturedPhoto?.let { capturedPhoto ->
       Image(
           bitmap = capturedPhoto.asImageBitmap(),
@@ -89,21 +126,16 @@ fun StreamScreen(
       ) {
         SwitchButton(
             label = stringResource(R.string.stop_stream_button_title),
-            onClick = {
-              streamViewModel.stopAutoCapture()
-              streamViewModel.stopStream()
-              wearablesViewModel.navigateToDeviceSelection()
-            },
+            onClick = onStopStreaming,
             isDestructive = true,
             modifier = Modifier.weight(1f),
         )
 
         // Photo capture button
         CaptureButton(
-            onClick = { streamViewModel.capturePhoto() },
+            onClick = onCapturePhoto,
         )
       }
     }
   }
-
 }
