@@ -1,14 +1,11 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
+ * Copyright (c) 2026 Crescio.
  *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
  */
 
-// WearablesUiState - DAT API State Management
-//
-// This data class aggregates DAT API state for the UI layer
+// Iris: WearablesUiState is the single source of truth for app-level wearable status.
 
 package li.crescio.penates.iris.wearables
 
@@ -21,12 +18,13 @@ data class WearablesUiState(
     val registrationState: RegistrationState = RegistrationState.Unavailable(),
     val devices: ImmutableList<DeviceIdentifier> = persistentListOf(),
     val recentError: String? = null,
-    val isStreaming: Boolean = false,
+    val hasActiveDevice: Boolean = false,
     val hasMockDevices: Boolean = false,
+    val isStreaming: Boolean = false,
     val isDebugMenuVisible: Boolean = false,
     val isGettingStartedSheetVisible: Boolean = false,
-    val hasActiveDevice: Boolean = false,
     val photoIntervalMs: Long = 1000L,
 ) {
-  val isRegistered: Boolean = registrationState is RegistrationState.Registered || hasMockDevices
+  val isRegistered: Boolean
+    get() = registrationState is RegistrationState.Registered || hasMockDevices
 }

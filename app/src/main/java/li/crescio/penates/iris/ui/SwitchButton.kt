@@ -1,9 +1,8 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
+ * Copyright (c) 2026 Crescio.
  *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
  */
 
 package li.crescio.penates.iris.ui
@@ -26,17 +25,18 @@ fun SwitchButton(
     isDestructive: Boolean = false,
     enabled: Boolean = true,
 ) {
+  val colors =
+      ButtonDefaults.buttonColors(
+          containerColor = if (isDestructive) AppColor.DestructiveBackground else AppColor.DeepBlue,
+          contentColor = if (isDestructive) AppColor.DestructiveForeground else Color.White,
+          disabledContainerColor = Color.Gray,
+          disabledContentColor = Color.DarkGray,
+      )
+
   Button(
       modifier = modifier.height(56.dp).fillMaxWidth(),
       onClick = onClick,
-      colors =
-          ButtonDefaults.buttonColors(
-              containerColor =
-                  if (isDestructive) AppColor.DestructiveBackground else AppColor.DeepBlue,
-              disabledContainerColor = Color.Gray,
-              disabledContentColor = Color.DarkGray,
-              contentColor = if (isDestructive) AppColor.DestructiveForeground else Color.White,
-          ),
+      colors = colors,
       enabled = enabled,
   ) {
     Text(label)

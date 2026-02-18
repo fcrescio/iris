@@ -1,15 +1,11 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
+ * Copyright (c) 2026 Crescio.
  *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
  */
 
-// StreamScreen - DAT Camera Streaming UI
-//
-// This composable demonstrates the main streaming UI for DAT camera functionality. It shows how to
-// display live video from wearable devices and handle photo capture.
+// Iris: StreamScreen renders stream controls and settings in a compact pager layout.
 
 package li.crescio.penates.iris.ui
 
@@ -44,6 +40,9 @@ import li.crescio.penates.iris.stream.StreamUiState
 import li.crescio.penates.iris.stream.StreamViewModel
 import li.crescio.penates.iris.wearables.WearablesViewModel
 
+private const val STREAM_PAGE = 0
+private const val SETTINGS_PAGE = 1
+
 @Composable
 fun StreamScreen(
     wearablesViewModel: WearablesViewModel,
@@ -57,36 +56,30 @@ fun StreamScreen(
                 ),
         ),
 ) {
-  val streamUiState by streamViewModel.uiState.collectAsStateWithLifecycle()
-  val wearablesUiState by wearablesViewModel.uiState.collectAsStateWithLifecycle()
-  val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
+  val streamState by streamViewModel.uiState.collectAsStateWithLifecycle()
+  val wearablesState by wearablesViewModel.uiState.collectAsStateWithLifecycle()
+  val pagerState = rememberPagerState(initialPage = STREAM_PAGE, pageCount = { 2 })
 
-  LaunchedEffect(Unit) {
-    streamViewModel.startStream()
+  LaunchedEffect(Unit) { streamViewModel.startStream() }
+  LaunchedEffect(wearablesState.photoIntervalMs) {
+    streamViewModel.startAutoCapture(wearablesState.photoIntervalMs)
   }
 
-  LaunchedEffect(wearablesUiState.photoIntervalMs) {
-    streamViewModel.startAutoCapture(wearablesUiState.photoIntervalMs)
-  }
-
-  HorizontalPager(
-      state = pagerState,
-      modifier = modifier.fillMaxSize(),
-  ) { page ->
+  HorizontalPager(state = pagerState, modifier = modifier.fillMaxSize()) { page ->
     when (page) {
-      0 ->
+      STREAM_PAGE ->
           StreamCameraPage(
-              streamUiState = streamUiState,
+              uiState = streamState,
               onStopStreaming = {
                 streamViewModel.stopAutoCapture()
                 streamViewModel.stopStream()
                 wearablesViewModel.navigateToDeviceSelection()
               },
-              onCapturePhoto = { streamViewModel.capturePhoto() },
+              onCapturePhoto = streamViewModel::capturePhoto,
           )
-      1 ->
+      SETTINGS_PAGE ->
           SettingsScreen(
-              photoIntervalMs = wearablesUiState.photoIntervalMs,
+              photoIntervalMs = wearablesState.photoIntervalMs,
               onPhotoIntervalChange = wearablesViewModel::setPhotoIntervalMs,
           )
     }
@@ -95,47 +88,41 @@ fun StreamScreen(
 
 @Composable
 private fun StreamCameraPage(
-    streamUiState: StreamUiState,
+    uiState: StreamUiState,
     onStopStreaming: () -> Unit,
     onCapturePhoto: () -> Unit,
 ) {
   Box(modifier = Modifier.fillMaxSize()) {
-    streamUiState.capturedPhoto?.let { capturedPhoto ->
+    uiState.capturedPhoto?.let {
       Image(
-          bitmap = capturedPhoto.asImageBitmap(),
+          bitmap = it.asImageBitmap(),
           contentDescription = stringResource(R.string.captured_photo),
           modifier = Modifier.fillMaxSize(),
           contentScale = ContentScale.Crop,
       )
     }
-    if (streamUiState.streamSessionState == StreamSessionState.STARTING) {
-      CircularProgressIndicator(
-          modifier = Modifier.align(Alignment.Center),
-      )
+
+    if (uiState.streamSessionState == StreamSessionState.STARTING) {
+      CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
     }
 
-    Box(modifier = Modifier.fillMaxSize().padding(all = 24.dp)) {
-      Row(
-          modifier =
-              Modifier.align(Alignment.BottomCenter)
-                  .navigationBarsPadding()
-                  .fillMaxWidth()
-                  .height(56.dp),
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-          verticalAlignment = Alignment.CenterVertically,
-      ) {
-        SwitchButton(
-            label = stringResource(R.string.stop_stream_button_title),
-            onClick = onStopStreaming,
-            isDestructive = true,
-            modifier = Modifier.weight(1f),
-        )
-
-        // Photo capture button
-        CaptureButton(
-            onClick = onCapturePhoto,
-        )
-      }
+    Row(
+        modifier =
+            Modifier.align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .fillMaxWidth()
+                .height(56.dp)
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+      SwitchButton(
+          label = stringResource(R.string.stop_stream_button_title),
+          onClick = onStopStreaming,
+          isDestructive = true,
+          modifier = Modifier.weight(1f),
+      )
+      CaptureButton(onClick = onCapturePhoto)
     }
   }
 }

@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2026 Crescio.
+ *
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
+ */
+
+// Iris: SettingsScreen exposes stream interval tuning with stepped controls.
+
 package li.crescio.penates.iris.ui
 
 import androidx.compose.foundation.layout.Arrangement
@@ -11,8 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import li.crescio.penates.iris.R
 import kotlin.math.roundToInt
+import li.crescio.penates.iris.R
 
 private const val MIN_INTERVAL_MS = 500f
 private const val MAX_INTERVAL_MS = 5000f
@@ -28,32 +37,27 @@ fun SettingsScreen(
       modifier = modifier.fillMaxSize().padding(24.dp),
       verticalArrangement = Arrangement.spacedBy(24.dp),
   ) {
+    Text(text = stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineSmall)
     Text(
-        text = stringResource(R.string.settings_title),
-        style = MaterialTheme.typography.headlineSmall,
+        text =
+            stringResource(
+                R.string.settings_interval_label,
+                photoIntervalMs,
+                stringResource(R.string.settings_interval_unit),
+            ),
+        style = MaterialTheme.typography.bodyLarge,
     )
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-      Text(
-          text =
-              stringResource(
-                  R.string.settings_interval_label,
-                  photoIntervalMs,
-                  stringResource(R.string.settings_interval_unit),
-              ),
-          style = MaterialTheme.typography.bodyLarge,
-      )
-
-      Slider(
-          value = photoIntervalMs.toFloat().coerceIn(MIN_INTERVAL_MS, MAX_INTERVAL_MS),
-          onValueChange = { value ->
-            val steps = ((value - MIN_INTERVAL_MS) / INTERVAL_STEP_MS).roundToInt()
-            val steppedValue = MIN_INTERVAL_MS + steps * INTERVAL_STEP_MS
-            onPhotoIntervalChange(steppedValue.toLong())
-          },
-          valueRange = MIN_INTERVAL_MS..MAX_INTERVAL_MS,
-          steps = ((MAX_INTERVAL_MS - MIN_INTERVAL_MS) / INTERVAL_STEP_MS).toInt() - 1,
-      )
-    }
+    Slider(
+        value = photoIntervalMs.toFloat().coerceIn(MIN_INTERVAL_MS, MAX_INTERVAL_MS),
+        onValueChange = { value -> onPhotoIntervalChange(value.toSteppedInterval()) },
+        valueRange = MIN_INTERVAL_MS..MAX_INTERVAL_MS,
+        steps = ((MAX_INTERVAL_MS - MIN_INTERVAL_MS) / INTERVAL_STEP_MS).toInt() - 1,
+    )
   }
+}
+
+private fun Float.toSteppedInterval(): Long {
+  val step = ((this - MIN_INTERVAL_MS) / INTERVAL_STEP_MS).roundToInt()
+  return (MIN_INTERVAL_MS + (step * INTERVAL_STEP_MS)).toLong()
 }

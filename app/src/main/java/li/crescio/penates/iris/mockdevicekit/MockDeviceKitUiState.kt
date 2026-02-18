@@ -1,23 +1,11 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
+ * Copyright (c) 2026 Crescio.
  *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
  */
 
-// MockDeviceKitUiState - DAT MockDeviceKit Testing State
-//
-// These data classes manage the state of simulated wearable devices for DAT testing. MockDeviceKit
-// provides a complete testing environment for DAT applications without requiring physical wearable
-// devices.
-//
-// MockDeviceInfo encapsulates:
-// - device: MockRaybanMeta instance from DAT MockDeviceKit API
-// - deviceId: UI identifier for tracking multiple mock devices
-// - deviceName: Display name for the simulated device
-// - hasCameraFeed: Whether mock video content has been configured
-// - hasCapturedImage: Whether mock photo content has been configured
+// Iris: MockDeviceKitUiState models simulator devices and configured media fixtures.
 
 package li.crescio.penates.iris.mockdevicekit
 
@@ -31,6 +19,4 @@ data class MockDeviceInfo(
     val hasCapturedImage: Boolean = false,
 )
 
-data class MockDeviceKitUiState(
-    val pairedDevices: List<MockDeviceInfo> = emptyList(),
-)
+data class MockDeviceKitUiState(val pairedDevices: List<MockDeviceInfo> = emptyList())

@@ -1,15 +1,11 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
+ * Copyright (c) 2026 Crescio.
  *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
  */
 
-// NonStreamScreen - DAT Device Selection and Setup
-//
-// This screen demonstrates DAT device management and pre-streaming setup. It handles device
-// registration status, camera permissions, and stream readiness.
+// Iris: NonStreamScreen handles post-registration readiness and stream launch.
 
 package li.crescio.penates.iris.ui
 
@@ -61,9 +57,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meta.wearable.dat.core.types.Permission
 import com.meta.wearable.dat.core.types.PermissionStatus
 import com.meta.wearable.dat.core.types.RegistrationState
+import kotlinx.coroutines.launch
 import li.crescio.penates.iris.R
 import li.crescio.penates.iris.wearables.WearablesViewModel
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,117 +68,46 @@ fun NonStreamScreen(
     onRequestWearablesPermission: suspend (Permission) -> PermissionStatus,
     modifier: Modifier = Modifier,
 ) {
-  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-  val gettingStartedSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+  val state by viewModel.uiState.collectAsStateWithLifecycle()
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   val scope = rememberCoroutineScope()
-  var dropdownExpanded by remember { mutableStateOf(false) }
-  val isDisconnectEnabled = uiState.registrationState is RegistrationState.Registered
   val activity = LocalActivity.current
   val context = LocalContext.current
+  var menuOpen by remember { mutableStateOf(false) }
 
   MaterialTheme(colorScheme = darkColorScheme()) {
     Box(
-        modifier = modifier.fillMaxSize().background(Color.Black).padding(all = 24.dp),
+        modifier = modifier.fillMaxSize().background(Color.Black).padding(24.dp),
         contentAlignment = Alignment.Center,
     ) {
-      Box(modifier = Modifier.align(Alignment.TopEnd).systemBarsPadding()) {
-        IconButton(onClick = { dropdownExpanded = true }) {
-          Icon(
-              imageVector = Icons.Default.LinkOff,
-              contentDescription = "DisconnectIcon",
-              tint = Color.White,
-              modifier = Modifier.size(28.dp),
-          )
-        }
+      ConnectionMenu(
+          modifier = Modifier.align(Alignment.TopEnd).systemBarsPadding(),
+          enabled = state.registrationState is RegistrationState.Registered,
+          expanded = menuOpen,
+          onExpandedChange = { menuOpen = it },
+          onDisconnect = {
+            activity?.let(viewModel::startUnregistration)
+                ?: Toast.makeText(context, "Activity not available", Toast.LENGTH_SHORT).show()
+          },
+      )
 
-        DropdownMenu(
-            expanded = dropdownExpanded,
-            onDismissRequest = { dropdownExpanded = false },
-        ) {
-          DropdownMenuItem(
-              text = {
-                Text(
-                    stringResource(R.string.unregister_button_title),
-                    color = if (isDisconnectEnabled) AppColor.Red else Color.Gray,
-                )
-              },
-              enabled = isDisconnectEnabled,
-              onClick = {
-                activity?.let { viewModel.startUnregistration(it) }
-                    ?: Toast.makeText(context, "Activity not available", Toast.LENGTH_SHORT).show()
-                dropdownExpanded = false
-              },
-              modifier = Modifier.height(30.dp),
-          )
-        }
-      }
+      NonStreamContent()
 
-      Column(
-          horizontalAlignment = Alignment.CenterHorizontally,
-          verticalArrangement = Arrangement.spacedBy(8.dp),
-      ) {
-        Icon(
-            painter = painterResource(id = R.drawable.camera_access_icon),
-            contentDescription = stringResource(R.string.camera_access_icon_description),
-            tint = Color.White,
-            modifier = Modifier.size(80.dp * LocalDensity.current.density),
-        )
-        Text(
-            text = stringResource(R.string.non_stream_screen_title),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = Color.White,
-        )
-        Text(
-            text = stringResource(R.string.non_stream_screen_description),
-            textAlign = TextAlign.Center,
-            color = Color.White,
-        )
-      }
-
-      Column(
+      StreamEntryArea(
           modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
-          horizontalAlignment = Alignment.CenterHorizontally,
-      ) {
-        if (!uiState.hasActiveDevice) {
-          Row(
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
-              verticalAlignment = Alignment.CenterVertically,
-              modifier = Modifier.padding(bottom = 12.dp),
-          ) {
-            Icon(
-                painter = painterResource(id = R.drawable.hourglass_icon),
-                contentDescription = "Waiting for device",
-                tint = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.size(16.dp),
-            )
-            Text(
-                text = stringResource(R.string.waiting_for_active_device),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.7f),
-            )
-          }
-        }
+          hasActiveDevice = state.hasActiveDevice,
+          onStartStream = { viewModel.navigateToStreaming(onRequestWearablesPermission) },
+      )
 
-        // Start Streaming Button
-        SwitchButton(
-            label = stringResource(R.string.stream_button_title),
-            onClick = { viewModel.navigateToStreaming(onRequestWearablesPermission) },
-            enabled = uiState.hasActiveDevice,
-        )
-      }
-
-      // Getting Started Sheet
-      if (uiState.isGettingStartedSheetVisible) {
+      if (state.isGettingStartedSheetVisible) {
         ModalBottomSheet(
-            onDismissRequest = { viewModel.hideGettingStartedSheet() },
-            sheetState = gettingStartedSheetState,
+            onDismissRequest = viewModel::hideGettingStartedSheet,
+            sheetState = sheetState,
         ) {
           GettingStartedSheetContent(
               onContinue = {
                 scope.launch {
-                  gettingStartedSheetState.hide()
+                  sheetState.hide()
                   viewModel.hideGettingStartedSheet()
                 }
               }
@@ -194,9 +119,111 @@ fun NonStreamScreen(
 }
 
 @Composable
+private fun ConnectionMenu(
+    modifier: Modifier = Modifier,
+    enabled: Boolean,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onDisconnect: () -> Unit,
+) {
+  Box(modifier = modifier) {
+    IconButton(onClick = { onExpandedChange(true) }) {
+      Icon(
+          imageVector = Icons.Default.LinkOff,
+          contentDescription = null,
+          tint = Color.White,
+          modifier = Modifier.size(28.dp),
+      )
+    }
+
+    DropdownMenu(expanded = expanded, onDismissRequest = { onExpandedChange(false) }) {
+      DropdownMenuItem(
+          text = {
+            Text(
+                stringResource(R.string.unregister_button_title),
+                color = if (enabled) AppColor.Red else Color.Gray,
+            )
+          },
+          enabled = enabled,
+          onClick = {
+            onDisconnect()
+            onExpandedChange(false)
+          },
+          modifier = Modifier.height(30.dp),
+      )
+    }
+  }
+}
+
+@Composable
+private fun NonStreamContent() {
+  Column(
+      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.spacedBy(8.dp),
+  ) {
+    Icon(
+        painter = painterResource(R.drawable.camera_access_icon),
+        contentDescription = stringResource(R.string.camera_access_icon_description),
+        tint = Color.White,
+        modifier = Modifier.size(80.dp * LocalDensity.current.density),
+    )
+    Text(
+        text = stringResource(R.string.non_stream_screen_title),
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center,
+        color = Color.White,
+    )
+    Text(
+        text = stringResource(R.string.non_stream_screen_description),
+        textAlign = TextAlign.Center,
+        color = Color.White,
+    )
+  }
+}
+
+@Composable
+private fun StreamEntryArea(
+    modifier: Modifier = Modifier,
+    hasActiveDevice: Boolean,
+    onStartStream: () -> Unit,
+) {
+  Column(
+      modifier = modifier,
+      horizontalAlignment = Alignment.CenterHorizontally,
+  ) {
+    if (!hasActiveDevice) {
+      Row(
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier.padding(bottom = 12.dp),
+      ) {
+        Icon(
+            painter = painterResource(R.drawable.hourglass_icon),
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.7f),
+            modifier = Modifier.size(16.dp),
+        )
+        Text(
+            text = stringResource(R.string.waiting_for_active_device),
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+      }
+    }
+
+    SwitchButton(
+        label = stringResource(R.string.stream_button_title),
+        onClick = onStartStream,
+        enabled = hasActiveDevice,
+    )
+  }
+}
+
+@Composable
 private fun GettingStartedSheetContent(onContinue: () -> Unit, modifier: Modifier = Modifier) {
   Column(
-      modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp),
+      modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.spacedBy(24.dp),
   ) {
@@ -208,21 +235,15 @@ private fun GettingStartedSheetContent(onContinue: () -> Unit, modifier: Modifie
     )
 
     Column(
+        modifier = Modifier.fillMaxWidth().padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(8.dp).padding(bottom = 16.dp),
     ) {
-      TipItem(
-          iconResId = R.drawable.video_icon,
-          text = stringResource(R.string.getting_started_tip_permission),
-      )
-      TipItem(
-          iconResId = R.drawable.tap_icon,
-          text = stringResource(R.string.getting_started_tip_photo),
-      )
-      TipItem(
-          iconResId = R.drawable.smart_glasses_icon,
-          text = stringResource(R.string.getting_started_tip_led),
-      )
+      listOf(
+              R.drawable.video_icon to R.string.getting_started_tip_permission,
+              R.drawable.tap_icon to R.string.getting_started_tip_photo,
+              R.drawable.smart_glasses_icon to R.string.getting_started_tip_led,
+          )
+          .forEach { (icon, text) -> TipItem(iconResId = icon, text = stringResource(text)) }
     }
 
     SwitchButton(
@@ -237,8 +258,8 @@ private fun GettingStartedSheetContent(onContinue: () -> Unit, modifier: Modifie
 private fun TipItem(iconResId: Int, text: String, modifier: Modifier = Modifier) {
   Row(modifier = modifier.fillMaxWidth()) {
     Icon(
-        painter = painterResource(id = iconResId),
-        contentDescription = "Getting started tip icon",
+        painter = painterResource(iconResId),
+        contentDescription = null,
         modifier = Modifier.padding(start = 4.dp, top = 4.dp).width(24.dp),
     )
     Spacer(modifier = Modifier.width(10.dp))

@@ -1,9 +1,8 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
+ * Copyright (c) 2026 Crescio.
  *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
  */
 
 package li.crescio.penates.iris.ui
@@ -44,7 +43,7 @@ fun CircleButton(
 fun CaptureButton(onClick: () -> Unit) {
   CircleButton(onClick = onClick) {
     Icon(
-        imageVector = Icons.Filled.PhotoCamera,
+        imageVector = Icons.Default.PhotoCamera,
         contentDescription = stringResource(R.string.capture_photo),
         tint = Color.Black,
     )

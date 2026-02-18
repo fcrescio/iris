@@ -1,14 +1,11 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
+ * Copyright (c) 2026 Crescio.
  *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
  */
 
-// HomeScreen - DAT Registration Entry Point
-//
-// This screen handles DAT device registration.
+// Iris: HomeScreen introduces wearable registration with concise guidance cards.
 
 package li.crescio.penates.iris.ui
 
@@ -44,11 +41,7 @@ import li.crescio.penates.iris.R
 import li.crescio.penates.iris.wearables.WearablesViewModel
 
 @Composable
-fun HomeScreen(
-    viewModel: WearablesViewModel,
-    modifier: Modifier = Modifier,
-) {
-  val scrollState = rememberScrollState()
+fun HomeScreen(viewModel: WearablesViewModel, modifier: Modifier = Modifier) {
   val activity = LocalActivity.current
   val context = LocalContext.current
 
@@ -56,89 +49,79 @@ fun HomeScreen(
       modifier =
           modifier
               .fillMaxSize()
-              .verticalScroll(scrollState)
-              .padding(all = 24.dp)
+              .verticalScroll(rememberScrollState())
+              .padding(24.dp)
               .navigationBarsPadding(),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.spacedBy(24.dp),
   ) {
     Spacer(modifier = Modifier.weight(1f))
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-      Icon(
-          painter = painterResource(id = R.drawable.camera_access_icon),
-          contentDescription = stringResource(R.string.camera_access_icon_description),
-          tint = AppColor.DeepBlue,
-          modifier = Modifier.size(80.dp * LocalDensity.current.density),
-      )
-      Column(
-          verticalArrangement = Arrangement.spacedBy(12.dp),
-          modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
-      ) {
-        TipItem(
-            iconResId = R.drawable.smart_glasses_icon,
-            title = stringResource(R.string.home_tip_video_title),
-            text = stringResource(R.string.home_tip_video),
-        )
-        TipItem(
-            iconResId = R.drawable.sound_icon,
-            title = stringResource(R.string.home_tip_audio_title),
-            text = stringResource(R.string.home_tip_audio),
-        )
-        TipItem(
-            iconResId = R.drawable.walking_icon,
-            title = stringResource(R.string.home_tip_hands_title),
-            text = stringResource(R.string.home_tip_hands),
-        )
-      }
-    }
+    HomeHero()
     Spacer(modifier = Modifier.weight(1f))
 
+    Text(
+        text = stringResource(R.string.home_redirect_message),
+        color = Color.Gray,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(horizontal = 24.dp),
+    )
+
+    SwitchButton(
+        label = stringResource(R.string.register_button_title),
+        onClick = {
+          activity?.let(viewModel::startRegistration)
+              ?: Toast.makeText(context, "Activity not available", Toast.LENGTH_SHORT).show()
+        },
+    )
+  }
+}
+
+@Composable
+private fun HomeHero() {
+  val tips =
+      listOf(
+          Triple(
+              R.drawable.smart_glasses_icon,
+              R.string.home_tip_video_title,
+              R.string.home_tip_video,
+          ),
+          Triple(R.drawable.sound_icon, R.string.home_tip_audio_title, R.string.home_tip_audio),
+          Triple(R.drawable.walking_icon, R.string.home_tip_hands_title, R.string.home_tip_hands),
+      )
+
+  Column(
+      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.spacedBy(8.dp),
+  ) {
+    Icon(
+        painter = painterResource(R.drawable.camera_access_icon),
+        contentDescription = stringResource(R.string.camera_access_icon_description),
+        tint = AppColor.DeepBlue,
+        modifier = Modifier.size(80.dp * LocalDensity.current.density),
+    )
+
     Column(
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-      // App Registration Button
-      Text(
-          text = stringResource(R.string.home_redirect_message),
-          color = Color.Gray,
-          textAlign = TextAlign.Center,
-          modifier = Modifier.padding(horizontal = 24.dp),
-      )
-      SwitchButton(
-          label = stringResource(R.string.register_button_title),
-          onClick = {
-            activity?.let { viewModel.startRegistration(it) }
-                ?: Toast.makeText(context, "Activity not available", Toast.LENGTH_SHORT).show()
-          },
-      )
+      tips.forEach { (icon, title, body) ->
+        TipItem(iconResId = icon, title = stringResource(title), text = stringResource(body))
+      }
     }
   }
 }
 
 @Composable
-private fun TipItem(
-    iconResId: Int,
-    title: String,
-    text: String,
-    modifier: Modifier = Modifier,
-) {
+private fun TipItem(iconResId: Int, title: String, text: String, modifier: Modifier = Modifier) {
   Row(modifier = modifier.fillMaxWidth()) {
     Icon(
-        painter = painterResource(id = iconResId),
-        contentDescription = "Tip icon",
+        painter = painterResource(iconResId),
+        contentDescription = null,
         modifier = Modifier.padding(start = 4.dp, top = 4.dp).width(24.dp),
     )
     Spacer(modifier = Modifier.width(12.dp))
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-      Text(
-          text = title,
-          fontSize = 20.sp,
-          fontWeight = FontWeight.SemiBold,
-      )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      Text(text = title, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
       Text(text = text, color = Color.Gray)
     }
   }

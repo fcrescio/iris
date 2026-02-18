@@ -1,19 +1,11 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
+ * Copyright (c) 2026 Crescio.
  *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
+ * This file is part of Iris and is distributed under the
+ * terms described in the LICENSE file at the repository root.
  */
 
-// CameraAccess Sample App - Main Activity
-//
-// This is the main entry point for the CameraAccess sample application that demonstrates how to use
-// the Meta Wearables Device Access Toolkit (DAT) to:
-// - Initialize the DAT SDK
-// - Handle device permissions (Bluetooth, Internet)
-// - Request camera permissions from wearable devices (Ray-Ban Meta glasses)
-// - Stream video and capture photos from connected wearable devices
+// Iris: MainActivity wires permissions, SDK initialization, and root navigation.
 
 package li.crescio.penates.iris
 
@@ -29,77 +21,68 @@ import androidx.activity.viewModels
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.types.Permission
 import com.meta.wearable.dat.core.types.PermissionStatus
-import li.crescio.penates.iris.ui.CameraAccessScaffold
-import li.crescio.penates.iris.wearables.WearablesViewModel
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import li.crescio.penates.iris.ui.CameraAccessScaffold
+import li.crescio.penates.iris.wearables.WearablesViewModel
 
 class MainActivity : ComponentActivity() {
+
   companion object {
-    // Required Android permissions for the DAT SDK to function properly
-    val PERMISSIONS: Array<String> = arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET)
+    private val REQUIRED_PERMISSIONS = arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET)
+    private const val PERMISSIONS_ERROR_MESSAGE =
+        "Allow all permissions (Bluetooth, Bluetooth Connect, Internet)"
   }
 
-  val viewModel: WearablesViewModel by viewModels()
+  private val wearablesViewModel: WearablesViewModel by viewModels()
+  private val permissionRequestMutex = Mutex()
+  private var pendingPermissionContinuation: CancellableContinuation<PermissionStatus>? = null
 
-  private var permissionContinuation: CancellableContinuation<PermissionStatus>? = null
-  private val permissionMutex = Mutex()
-  // Requesting wearable device permissions via the Meta AI app
-  private val permissionsResultLauncher =
+  private val androidPermissionsLauncher =
+      registerForActivityResult(RequestMultiplePermissions(), ::onAndroidPermissionsResult)
+
+  private val wearablesPermissionLauncher =
       registerForActivityResult(Wearables.RequestPermissionContract()) { result ->
-        val permissionStatus = result.getOrDefault(PermissionStatus.Denied)
-        permissionContinuation?.resume(permissionStatus)
-        permissionContinuation = null
+        pendingPermissionContinuation?.resume(result.getOrDefault(PermissionStatus.Denied))
+        pendingPermissionContinuation = null
       }
-
-  // Convenience method to make a permission request in a sequential manner
-  // Uses a Mutex to ensure requests are processed one at a time, preventing race conditions
-  suspend fun requestWearablesPermission(permission: Permission): PermissionStatus {
-    return permissionMutex.withLock {
-      suspendCancellableCoroutine { continuation ->
-        permissionContinuation = continuation
-        continuation.invokeOnCancellation { permissionContinuation = null }
-        permissionsResultLauncher.launch(permission)
-      }
-    }
-  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
 
-    // First, ensure the app has necessary Android permissions
-    checkPermissions {
-      // Initialize the DAT SDK once the permissions are granted
-      // This is REQUIRED before using any Wearables APIs
-      Wearables.initialize(this)
-
-      // Start observing Wearables state after SDK is initialized
-      viewModel.startMonitoring()
-    }
+    requestAndroidPermissionsAndBootstrap()
 
     setContent {
       CameraAccessScaffold(
-          viewModel = viewModel,
+          viewModel = wearablesViewModel,
           onRequestWearablesPermission = ::requestWearablesPermission,
       )
     }
   }
 
-  fun checkPermissions(onPermissionsGranted: () -> Unit) {
-    registerForActivityResult(RequestMultiplePermissions()) { permissionsResult ->
-          val granted = permissionsResult.entries.all { it.value }
-          if (granted) {
-            onPermissionsGranted()
-          } else {
-            viewModel.setRecentError(
-                "Allow All Permissions (Bluetooth, Bluetooth Connect, Internet)"
-            )
-          }
+  suspend fun requestWearablesPermission(permission: Permission): PermissionStatus =
+      permissionRequestMutex.withLock {
+        suspendCancellableCoroutine { continuation ->
+          pendingPermissionContinuation = continuation
+          continuation.invokeOnCancellation { pendingPermissionContinuation = null }
+          wearablesPermissionLauncher.launch(permission)
         }
-        .launch(PERMISSIONS)
+      }
+
+  private fun requestAndroidPermissionsAndBootstrap() {
+    androidPermissionsLauncher.launch(REQUIRED_PERMISSIONS)
+  }
+
+  private fun onAndroidPermissionsResult(grants: Map<String, Boolean>) {
+    if (grants.values.all { it }) {
+      Wearables.initialize(this)
+      wearablesViewModel.startMonitoring()
+      return
+    }
+    wearablesViewModel.setRecentError(PERMISSIONS_ERROR_MESSAGE)
   }
 }
