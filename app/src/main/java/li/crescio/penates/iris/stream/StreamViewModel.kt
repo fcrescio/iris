@@ -40,7 +40,7 @@ import li.crescio.penates.iris.wearables.WearablesViewModel
 
 class StreamViewModel(
     application: Application,
-    wearablesViewModel: WearablesViewModel,
+    private val wearablesViewModel: WearablesViewModel,
 ) : AndroidViewModel(application) {
 
   companion object {
@@ -64,7 +64,7 @@ class StreamViewModel(
         Wearables.startStreamSession(
             getApplication(),
             deviceSelector,
-            StreamConfiguration(videoQuality = VideoQuality.LOW, autoExposure = 1),
+            StreamConfiguration(videoQuality = VideoQuality.LOW),
         )
 
     streamSession = newSession
