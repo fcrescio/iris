@@ -10,10 +10,9 @@
 //
 // This ViewModel demonstrates the DAT Camera Streaming APIs for:
 // - Creating and managing stream sessions with wearable devices
-// - Receiving video frames from device cameras
+// - Keeping a stream session alive for periodic photo capture
 // - Capturing photos during streaming sessions
 // - Handling different video qualities and formats
-// - Processing raw video data (I420 -> NV21 conversion)
 
 package li.crescio.penates.iris.stream
 
@@ -21,10 +20,7 @@ import android.app.Application
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.ImageFormat
 import android.graphics.Matrix
-import android.graphics.Rect
-import android.graphics.YuvImage
 import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
@@ -37,17 +33,16 @@ import com.meta.wearable.dat.camera.startStreamSession
 import com.meta.wearable.dat.camera.types.PhotoData
 import com.meta.wearable.dat.camera.types.StreamConfiguration
 import com.meta.wearable.dat.camera.types.StreamSessionState
-import com.meta.wearable.dat.camera.types.VideoFrame
 import com.meta.wearable.dat.camera.types.VideoQuality
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.DeviceSelector
 import li.crescio.penates.iris.wearables.WearablesViewModel
 import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,21 +65,18 @@ class StreamViewModel(
   private val _uiState = MutableStateFlow(INITIAL_STATE)
   val uiState: StateFlow<StreamUiState> = _uiState.asStateFlow()
 
-  private var videoJob: Job? = null
   private var stateJob: Job? = null
   private var captureJob: Job? = null
 
   fun startStream() {
-    videoJob?.cancel()
     stateJob?.cancel()
     val streamSession =
         Wearables.startStreamSession(
                 getApplication(),
                 deviceSelector,
-                StreamConfiguration(videoQuality = VideoQuality.MEDIUM, 24),
+                StreamConfiguration(videoQuality = VideoQuality.LOW, 1),
             )
             .also { streamSession = it }
-    videoJob = viewModelScope.launch { streamSession.videoStream.collect { handleVideoFrame(it) } }
     stateJob =
         viewModelScope.launch {
           streamSession.state.collect { currentState ->
@@ -103,8 +95,6 @@ class StreamViewModel(
   fun stopStream() {
     captureJob?.cancel()
     captureJob = null
-    videoJob?.cancel()
-    videoJob = null
     stateJob?.cancel()
     stateJob = null
     streamSession?.close()
@@ -116,8 +106,8 @@ class StreamViewModel(
     captureJob?.cancel()
     captureJob = viewModelScope.launch {
       while (true) {
-        capturePhoto()
-        kotlinx.coroutines.delay(intervalMs)
+        capturePhoto(showShareDialog = false)
+        delay(intervalMs)
       }
     }
   }
@@ -127,7 +117,7 @@ class StreamViewModel(
     captureJob = null
   }
 
-  fun capturePhoto() {
+  fun capturePhoto(showShareDialog: Boolean = true) {
     if (uiState.value.isCapturing) {
       Log.d(TAG, "Photo capture already in progress, ignoring request")
       return
@@ -142,7 +132,7 @@ class StreamViewModel(
             ?.capturePhoto()
             ?.onSuccess { photoData ->
               Log.d(TAG, "Photo capture successful")
-              handlePhotoData(photoData)
+              handlePhotoData(photoData, showShareDialog)
               _uiState.update { it.copy(isCapturing = false) }
             }
             ?.onFailure {
@@ -191,47 +181,7 @@ class StreamViewModel(
     }
   }
 
-  private fun handleVideoFrame(videoFrame: VideoFrame) {
-    // VideoFrame contains raw I420 video data in a ByteBuffer
-    val buffer = videoFrame.buffer
-    val dataSize = buffer.remaining()
-    val byteArray = ByteArray(dataSize)
-
-    // Save current position
-    val originalPosition = buffer.position()
-    buffer.get(byteArray)
-    // Restore position
-    buffer.position(originalPosition)
-
-    // Convert I420 to NV21 format which is supported by Android's YuvImage
-    val nv21 = convertI420toNV21(byteArray, videoFrame.width, videoFrame.height)
-    val image = YuvImage(nv21, ImageFormat.NV21, videoFrame.width, videoFrame.height, null)
-    val out =
-        ByteArrayOutputStream().use { stream ->
-          image.compressToJpeg(Rect(0, 0, videoFrame.width, videoFrame.height), 50, stream)
-          stream.toByteArray()
-        }
-
-    val bitmap = BitmapFactory.decodeByteArray(out, 0, out.size)
-    _uiState.update { it.copy(videoFrame = bitmap) }
-  }
-
-  // Convert I420 (YYYYYYYY:UUVV) to NV21 (YYYYYYYY:VUVU)
-  private fun convertI420toNV21(input: ByteArray, width: Int, height: Int): ByteArray {
-    val output = ByteArray(input.size)
-    val size = width * height
-    val quarter = size / 4
-
-    input.copyInto(output, 0, 0, size) // Y is the same
-
-    for (n in 0 until quarter) {
-      output[size + n * 2] = input[size + quarter + n] // V first
-      output[size + n * 2 + 1] = input[size + n] // U second
-    }
-    return output
-  }
-
-  private fun handlePhotoData(photo: PhotoData) {
+  private fun handlePhotoData(photo: PhotoData, showShareDialog: Boolean) {
     val capturedPhoto =
         when (photo) {
           is PhotoData.Bitmap -> photo.bitmap
@@ -245,7 +195,7 @@ class StreamViewModel(
             decodeHeic(byteArray, transform)
           }
         }
-    _uiState.update { it.copy(capturedPhoto = capturedPhoto, isShareDialogVisible = true) }
+    _uiState.update { it.copy(capturedPhoto = capturedPhoto, isShareDialogVisible = showShareDialog) }
   }
 
   // HEIC Decoding with EXIF transformation
