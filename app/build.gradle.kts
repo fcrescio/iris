@@ -13,6 +13,8 @@ plugins {
   id("com.google.gms.google-services")
 }
 
+val githubActionVersionName = providers.gradleProperty("appVersionName").orNull
+
 android {
   namespace = "li.crescio.penates.iris"
   compileSdk = 35
@@ -24,7 +26,7 @@ android {
     minSdk = 31
     targetSdk = 34
     versionCode = 1
-    versionName = "1.0"
+    versionName = githubActionVersionName ?: "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     vectorDrawables { useSupportLibrary = true }
