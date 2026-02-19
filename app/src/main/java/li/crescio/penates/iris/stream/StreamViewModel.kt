@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.launch
 import li.crescio.penates.iris.wearables.WearablesViewModel
 
@@ -56,9 +57,11 @@ class StreamViewModel(
   private var streamSession: StreamSession? = null
   private var streamStateJob: Job? = null
   private var autoCaptureJob: Job? = null
+  private var connectionManager: ErmeteConnectionManager? = null
 
-  fun startStream() {
+  fun startStream(serverHttpUrl: String) {
     stopStream()
+    connectionManager = ErmeteConnectionManager(getApplication(), viewModelScope).also { it.connect(serverHttpUrl) }
 
     val newSession =
         Wearables.startStreamSession(
@@ -86,16 +89,18 @@ class StreamViewModel(
     streamStateJob?.cancel()
     streamStateJob = null
     streamSession?.close()
+    connectionManager?.close()
+    connectionManager = null
     streamSession = null
     _uiState.update { INITIAL }
   }
 
-  fun startAutoCapture(intervalMs: Long = 1_000L) {
+  fun startAutoCapture(intervalMs: Long = 10_000L) {
     stopAutoCapture()
     autoCaptureJob =
         viewModelScope.launch {
           while (true) {
-            capturePhoto()
+            capturePhoto(wearablesViewModel.uiState.value.serverHttpUrl)
             delay(intervalMs)
           }
         }
@@ -106,7 +111,7 @@ class StreamViewModel(
     autoCaptureJob = null
   }
 
-  fun capturePhoto() {
+  fun capturePhoto(serverHttpUrl: String) {
     val state = _uiState.value
     if (state.isCapturing || state.streamSessionState != StreamSessionState.STREAMING) return
 
@@ -114,7 +119,11 @@ class StreamViewModel(
     viewModelScope.launch {
       streamSession
           ?.capturePhoto()
-          ?.onSuccess { _uiState.update { current -> current.copy(capturedPhoto = decodePhoto(it)) } }
+          ?.onSuccess {
+            val bitmap = decodePhoto(it)
+            _uiState.update { current -> current.copy(capturedPhoto = bitmap) }
+            connectionManager?.sendFrame(serverHttpUrl, bitmap.toJpegBytes())
+          }
           ?.onFailure { Log.e(TAG, "Photo capture failed") }
       _uiState.update { it.copy(isCapturing = false) }
     }
@@ -194,4 +203,10 @@ class StreamViewModel(
       throw IllegalArgumentException("Unknown ViewModel class")
     }
   }
+}
+
+private fun Bitmap.toJpegBytes(): ByteArray {
+  val output = ByteArrayOutputStream()
+  compress(Bitmap.CompressFormat.JPEG, 90, output)
+  return output.toByteArray()
 }

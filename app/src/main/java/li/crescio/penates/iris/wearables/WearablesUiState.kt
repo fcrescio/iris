@@ -24,7 +24,8 @@ data class WearablesUiState(
     val isDebugMenuVisible: Boolean = false,
     val isGettingStartedSheetVisible: Boolean = false,
     val shouldAutoStartStreaming: Boolean = false,
-    val photoIntervalMs: Long = 1000L,
+    val photoIntervalMs: Long = 10000L,
+    val serverHttpUrl: String = "http://10.0.2.2:8080",
 ) {
   val isRegistered: Boolean
     get() = registrationState is RegistrationState.Registered || hasMockDevices

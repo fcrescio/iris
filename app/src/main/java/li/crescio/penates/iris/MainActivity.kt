@@ -12,6 +12,7 @@ package li.crescio.penates.iris
 import android.Manifest.permission.BLUETOOTH
 import android.Manifest.permission.BLUETOOTH_CONNECT
 import android.Manifest.permission.INTERNET
+import android.Manifest.permission.RECORD_AUDIO
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -33,9 +34,9 @@ import li.crescio.penates.iris.wearables.WearablesViewModel
 class MainActivity : ComponentActivity() {
 
   companion object {
-    private val REQUIRED_PERMISSIONS = arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET)
+    private val REQUIRED_PERMISSIONS = arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET, RECORD_AUDIO)
     private const val PERMISSIONS_ERROR_MESSAGE =
-        "Allow all permissions (Bluetooth, Bluetooth Connect, Internet)"
+        "Allow all permissions (Bluetooth, Bluetooth Connect, Internet, Record Audio)"
   }
 
   private val wearablesViewModel: WearablesViewModel by viewModels()

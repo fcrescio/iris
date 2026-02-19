@@ -18,7 +18,7 @@
     <string name="live_stream" description="Live Stream">Live stream</string>
     <string name="settings_title" description="Settings screen title">Settings</string>
     <string name="settings_interval_label" description="Photo interval label">Photo interval: %1$d %2$s</string>
-    <string name="settings_interval_unit" description="Photo interval unit">ms</string>
+    <string name="settings_interval_unit" description="Photo interval unit">seconds</string>
 
     <!-- Non Stream Screen -->
     <string name="camera_access_icon_description" description="Camera Access icon description">Camera Access icon</string>
@@ -54,4 +54,5 @@
     <string name="getting_started_tip_led" description="Tip about capture LED">The capture LED lets others know when you\'re capturing content or going live.</string>
     <string name="getting_started_tip_photo" description="Tip about photo capture">Capture photos by tapping the camera button.</string>
     <string name="getting_started_continue" description="Continue button">Continue</string>
+    <string name="settings_server_http_url_label" description="Server HTTP URL label">Server URL</string>
 </resources>

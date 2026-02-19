@@ -95,7 +95,10 @@ class WearablesViewModel(application: Application) : AndroidViewModel(applicatio
 
   fun hideGettingStartedSheet() = updateState { copy(isGettingStartedSheetVisible = false) }
 
-  fun setPhotoIntervalMs(intervalMs: Long) = updateState { copy(photoIntervalMs = intervalMs) }
+  fun setPhotoIntervalMs(intervalMs: Long) =
+      updateState { copy(photoIntervalMs = intervalMs.coerceIn(5_000L, 20_000L)) }
+
+  fun setServerHttpUrl(url: String) = updateState { copy(serverHttpUrl = url.trimEnd('/')) }
 
   private fun observeActiveDevice() {
     activeDeviceJob =

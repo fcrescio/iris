@@ -12,8 +12,10 @@ package li.crescio.penates.iris.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,14 +25,16 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import li.crescio.penates.iris.R
 
-private const val MIN_INTERVAL_MS = 500f
-private const val MAX_INTERVAL_MS = 5000f
-private const val INTERVAL_STEP_MS = 500f
+private const val MIN_INTERVAL_MS = 5000f
+private const val MAX_INTERVAL_MS = 20000f
+private const val INTERVAL_STEP_MS = 1000f
 
 @Composable
 fun SettingsScreen(
     photoIntervalMs: Long,
     onPhotoIntervalChange: (Long) -> Unit,
+    serverHttpUrl: String,
+    onServerHttpUrlChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
   Column(
@@ -42,7 +46,7 @@ fun SettingsScreen(
         text =
             stringResource(
                 R.string.settings_interval_label,
-                photoIntervalMs,
+                photoIntervalMs / 1000,
                 stringResource(R.string.settings_interval_unit),
             ),
         style = MaterialTheme.typography.bodyLarge,
@@ -53,6 +57,14 @@ fun SettingsScreen(
         onValueChange = { value -> onPhotoIntervalChange(value.toSteppedInterval()) },
         valueRange = MIN_INTERVAL_MS..MAX_INTERVAL_MS,
         steps = ((MAX_INTERVAL_MS - MIN_INTERVAL_MS) / INTERVAL_STEP_MS).toInt() - 1,
+    )
+
+    OutlinedTextField(
+        value = serverHttpUrl,
+        onValueChange = onServerHttpUrlChange,
+        label = { Text(stringResource(R.string.settings_server_http_url_label)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
     )
   }
 }
