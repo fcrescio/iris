@@ -23,6 +23,7 @@ data class WearablesUiState(
     val isStreaming: Boolean = false,
     val isDebugMenuVisible: Boolean = false,
     val isGettingStartedSheetVisible: Boolean = false,
+    val shouldAutoStartStreaming: Boolean = false,
     val photoIntervalMs: Long = 1000L,
 ) {
   val isRegistered: Boolean
