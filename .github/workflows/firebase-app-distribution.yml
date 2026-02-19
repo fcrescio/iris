@@ -45,7 +45,7 @@ jobs:
       - name: Build release APK
         env:
           GITHUB_TOKEN: ${{ secrets.MWDAT_GITHUB_TOKEN }}
-        run: ./gradlew --no-daemon :app:assembleRelease
+        run: ./gradlew --no-daemon :app:assembleRelease -PappVersionName=${GITHUB_SHA}
 
       - name: Firebase App Distribution
         if: success()
