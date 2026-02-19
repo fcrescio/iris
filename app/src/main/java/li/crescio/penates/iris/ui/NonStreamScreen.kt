@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,6 +75,12 @@ fun NonStreamScreen(
   val activity = LocalActivity.current
   val context = LocalContext.current
   var menuOpen by remember { mutableStateOf(false) }
+
+  LaunchedEffect(state.shouldAutoStartStreaming, state.hasActiveDevice) {
+    if (!state.shouldAutoStartStreaming || !state.hasActiveDevice) return@LaunchedEffect
+    viewModel.consumeAutoStartStreamingRequest()
+    viewModel.navigateToStreaming(onRequestWearablesPermission)
+  }
 
   MaterialTheme(colorScheme = darkColorScheme()) {
     Box(
@@ -239,7 +246,7 @@ private fun GettingStartedSheetContent(onContinue: () -> Unit, modifier: Modifie
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
       listOf(
-              R.drawable.video_icon to R.string.getting_started_tip_permission,
+              R.drawable.camera_icon to R.string.getting_started_tip_permission,
               R.drawable.tap_icon to R.string.getting_started_tip_photo,
               R.drawable.smart_glasses_icon to R.string.getting_started_tip_led,
           )

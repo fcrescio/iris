@@ -65,12 +65,12 @@ class WearablesViewModel(application: Application) : AndroidViewModel(applicatio
       }
 
       if (permissionResult.getOrNull() == PermissionStatus.Granted) {
-        updateState { copy(isStreaming = true) }
+        startStreaming()
         return@launch
       }
 
       when (onRequestWearablesPermission(permission)) {
-        PermissionStatus.Granted -> updateState { copy(isStreaming = true) }
+        PermissionStatus.Granted -> startStreaming()
         PermissionStatus.Denied -> setRecentError("Permission denied")
       }
     }
@@ -78,6 +78,10 @@ class WearablesViewModel(application: Application) : AndroidViewModel(applicatio
 
 
   fun navigateToDeviceSelection() = updateState { copy(isStreaming = false) }
+
+  fun requestAutoStartStreaming() = updateState { copy(shouldAutoStartStreaming = true) }
+
+  fun consumeAutoStartStreamingRequest() = updateState { copy(shouldAutoStartStreaming = false) }
 
   fun showDebugMenu() = updateState { copy(isDebugMenuVisible = true) }
 
@@ -145,6 +149,11 @@ class WearablesViewModel(application: Application) : AndroidViewModel(applicatio
           }
     }
   }
+
+  private fun startStreaming() =
+      updateState {
+        copy(isStreaming = true, shouldAutoStartStreaming = false)
+      }
 
   private inline fun updateState(update: WearablesUiState.() -> WearablesUiState) {
     _uiState.update(update)

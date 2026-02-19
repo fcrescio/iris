@@ -12,6 +12,7 @@ package li.crescio.penates.iris
 import android.Manifest.permission.BLUETOOTH
 import android.Manifest.permission.BLUETOOTH_CONNECT
 import android.Manifest.permission.INTERNET
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -55,6 +56,7 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
 
     requestAndroidPermissionsAndBootstrap()
+    handleIntent(intent)
 
     setContent {
       CameraAccessScaffold(
@@ -62,6 +64,12 @@ class MainActivity : ComponentActivity() {
           onRequestWearablesPermission = ::requestWearablesPermission,
       )
     }
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    handleIntent(intent)
   }
 
   suspend fun requestWearablesPermission(permission: Permission): PermissionStatus =
@@ -72,6 +80,12 @@ class MainActivity : ComponentActivity() {
           wearablesPermissionLauncher.launch(permission)
         }
       }
+
+  private fun handleIntent(intent: Intent?) {
+    if (intent?.action == Intent.ACTION_VIEW) {
+      wearablesViewModel.requestAutoStartStreaming()
+    }
+  }
 
   private fun requestAndroidPermissionsAndBootstrap() {
     androidPermissionsLauncher.launch(REQUIRED_PERMISSIONS)
