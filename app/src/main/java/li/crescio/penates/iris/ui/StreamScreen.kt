@@ -12,22 +12,28 @@ package li.crescio.penates.iris.ui
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -95,6 +101,11 @@ private fun StreamCameraPage(
     onCapturePhoto: () -> Unit,
 ) {
   Box(modifier = Modifier.fillMaxSize()) {
+    WebRtcStatusIndicator(
+        streamSessionState = uiState.streamSessionState,
+        modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(16.dp),
+    )
+
     uiState.capturedPhoto?.let {
       Image(
           bitmap = it.asImageBitmap(),
@@ -126,5 +137,26 @@ private fun StreamCameraPage(
       )
       CaptureButton(onClick = onCapturePhoto)
     }
+  }
+}
+
+@Composable
+private fun WebRtcStatusIndicator(streamSessionState: StreamSessionState, modifier: Modifier = Modifier) {
+  Box(
+      modifier =
+          modifier.background(
+              color = Color.Black.copy(alpha = 0.7f),
+              shape = RoundedCornerShape(12.dp),
+          ).padding(horizontal = 12.dp, vertical = 8.dp)
+  ) {
+    Text(
+        text =
+            stringResource(
+                R.string.webrtc_status_label,
+                streamSessionState.name.lowercase().replaceFirstChar(Char::uppercase),
+            ),
+        style = MaterialTheme.typography.labelLarge,
+        color = Color.White,
+    )
   }
 }
