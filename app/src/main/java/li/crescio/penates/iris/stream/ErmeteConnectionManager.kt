@@ -191,7 +191,9 @@ class ErmeteConnectionManager(private val context: Context, private val scope: C
 
           override fun onSetSuccess() = Unit
 
-          override fun onCreateFailure(error: String?) = Log.e(TAG, "Offer failed: $error")
+          override fun onCreateFailure(error: String?) {
+            Log.e(TAG, "Offer failed: $error")
+          }
 
           override fun onSetFailure(error: String?) = Unit
         },
@@ -239,6 +241,8 @@ class ErmeteConnectionManager(private val context: Context, private val scope: C
 
         override fun onCreateFailure(error: String?) = Unit
 
-        override fun onSetFailure(error: String?) = Log.e(TAG, "SDP set failure: $error")
+        override fun onSetFailure(error: String?) {
+          Log.e(TAG, "SDP set failure: $error")
+        }
       }
 }
