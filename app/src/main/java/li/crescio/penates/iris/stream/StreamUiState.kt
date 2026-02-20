@@ -14,6 +14,7 @@ import com.meta.wearable.dat.camera.types.StreamSessionState
 
 data class StreamUiState(
     val streamSessionState: StreamSessionState = StreamSessionState.STOPPED,
+    val serverConnectionState: ServerConnectionState = ServerConnectionState.DISCONNECTED,
     val capturedPhoto: Bitmap? = null,
     val isCapturing: Boolean = false,
 )
