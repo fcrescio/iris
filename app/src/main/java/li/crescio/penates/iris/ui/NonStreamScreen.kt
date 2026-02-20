@@ -71,7 +71,8 @@ fun NonStreamScreen(
     modifier: Modifier = Modifier,
 ) {
   val state by viewModel.uiState.collectAsStateWithLifecycle()
-  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+  val gettingStartedSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+  val settingsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   val scope = rememberCoroutineScope()
   val activity = LocalActivity.current
   val context = LocalContext.current
@@ -123,12 +124,12 @@ fun NonStreamScreen(
       if (state.isGettingStartedSheetVisible) {
         ModalBottomSheet(
             onDismissRequest = viewModel::hideGettingStartedSheet,
-            sheetState = sheetState,
+            sheetState = gettingStartedSheetState,
         ) {
           GettingStartedSheetContent(
               onContinue = {
                 scope.launch {
-                  sheetState.hide()
+                  gettingStartedSheetState.hide()
                   viewModel.hideGettingStartedSheet()
                 }
               }
@@ -139,7 +140,7 @@ fun NonStreamScreen(
       if (isSettingsSheetVisible) {
         ModalBottomSheet(
             onDismissRequest = { isSettingsSheetVisible = false },
-            sheetState = sheetState,
+            sheetState = settingsSheetState,
         ) {
           SettingsScreen(
               photoIntervalMs = state.photoIntervalMs,

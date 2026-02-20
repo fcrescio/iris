@@ -98,7 +98,7 @@ class WearablesViewModel(application: Application) : AndroidViewModel(applicatio
   fun setPhotoIntervalMs(intervalMs: Long) =
       updateState { copy(photoIntervalMs = intervalMs.coerceIn(5_000L, 20_000L)) }
 
-  fun setServerHttpUrl(url: String) = updateState { copy(serverHttpUrl = url.trimEnd('/')) }
+  fun setServerHttpUrl(url: String) = updateState { copy(serverHttpUrl = url) }
 
   private fun observeActiveDevice() {
     activeDeviceJob =
