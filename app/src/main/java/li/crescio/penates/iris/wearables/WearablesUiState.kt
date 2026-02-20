@@ -13,6 +13,7 @@ import com.meta.wearable.dat.core.types.DeviceIdentifier
 import com.meta.wearable.dat.core.types.RegistrationState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import li.crescio.penates.iris.BuildConfig
 
 data class WearablesUiState(
     val registrationState: RegistrationState = RegistrationState.Unavailable(),
@@ -25,7 +26,7 @@ data class WearablesUiState(
     val isGettingStartedSheetVisible: Boolean = false,
     val shouldAutoStartStreaming: Boolean = false,
     val photoIntervalMs: Long = 10000L,
-    val serverHttpUrl: String = "http://10.0.2.2:8080",
+    val serverHttpUrl: String = BuildConfig.DEFAULT_WEBRTC_ADDRESS,
 ) {
   val isRegistered: Boolean
     get() = registrationState is RegistrationState.Registered || hasMockDevices
