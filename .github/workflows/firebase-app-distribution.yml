@@ -45,7 +45,7 @@ jobs:
       - name: Build release APK
         env:
           GITHUB_TOKEN: ${{ secrets.MWDAT_GITHUB_TOKEN }}
-          DEFAULT_WEBRTC_ADDRESS: ${{ vars.DEFAULT_WEBRTC_ADDRESS || 'http://10.0.2.2:8080' }}
+          DEFAULT_WEBRTC_ADDRESS: ${{ secrets.DEFAULT_WEBRTC_ADDRESS || 'http://10.0.2.2:8080' }}
         run: ./gradlew --no-daemon :app:assembleRelease -PappVersionName=${GITHUB_SHA}
 
       - name: Firebase App Distribution
