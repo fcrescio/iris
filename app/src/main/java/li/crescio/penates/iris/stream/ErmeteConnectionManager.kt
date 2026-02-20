@@ -25,10 +25,12 @@ import org.webrtc.audio.JavaAudioDeviceModule
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
+
 class ErmeteConnectionManager(
     private val context: Context,
     private val scope: CoroutineScope,
     private val onConnectionStateChanged: (ServerConnectionState) -> Unit,
+    private val onDebugLog: (ConnectionDebugLogEntry) -> Unit,
 ) {
   companion object {
     private const val TAG = "ErmeteConnection"
@@ -55,6 +57,9 @@ class ErmeteConnectionManager(
         serverHttpUrl.replaceFirst("http://", "ws://").replaceFirst("https://", "wss://") +
             "/v1/ws"
 
+    addDebugLog("Starting connection to $serverHttpUrl")
+    addDebugLog("Opening signaling WebSocket at $wsUrl")
+
     setConnectionState(ServerConnectionState.CONNECTING)
     initializePeerConnectionFactory()
     createPeerConnection()
@@ -75,21 +80,28 @@ class ErmeteConnectionManager(
                     .build()
             httpClient.newCall(request).execute().use { response ->
               if (!response.isSuccessful) {
-                Log.e(TAG, "Frame upload failed: ${response.code}")
+                val message = "Frame upload failed: HTTP ${response.code}"
+                addDebugLog(message)
+                Log.e(TAG, message)
               }
             }
           }
-          .onFailure { Log.e(TAG, "Frame upload error", it) }
+          .onFailure {
+            addDebugLog("Frame upload error: ${it.message ?: "unknown"}")
+            Log.e(TAG, "Frame upload error", it)
+          }
     }
   }
 
   fun sendPing() {
     val payload = JSONObject().put("type", "ping").put("text", "hello from iris")
+    addDebugLog("Sending ping on cmd data channel")
     cmdDataChannel?.send(
         org.webrtc.DataChannel.Buffer(java.nio.ByteBuffer.wrap(payload.toString().toByteArray()), false))
   }
 
   fun close() {
+    addDebugLog("Closing connection manager resources")
     ws?.close(1000, "closing")
     ws = null
     wsClient?.dispatcher?.executorService?.shutdown()
@@ -109,6 +121,8 @@ class ErmeteConnectionManager(
   private fun initializePeerConnectionFactory() {
     if (peerConnectionFactory != null) return
 
+    addDebugLog("Initializing PeerConnectionFactory")
+
     PeerConnectionFactory.initialize(
         PeerConnectionFactory.InitializationOptions.builder(context)
             .setEnableInternalTracer(false)
@@ -121,6 +135,7 @@ class ErmeteConnectionManager(
 
   private fun createPeerConnection() {
     val rtcConfig = PeerConnection.RTCConfiguration(emptyList())
+    addDebugLog("Creating RTCPeerConnection")
     peerConnection =
         peerConnectionFactory?.createPeerConnection(
             rtcConfig,
@@ -128,6 +143,7 @@ class ErmeteConnectionManager(
               override fun onSignalingChange(state: PeerConnection.SignalingState) = Unit
 
               override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
+                addDebugLog("ICE connection state: $state")
                 when (state) {
                   PeerConnection.IceConnectionState.CONNECTED,
                   PeerConnection.IceConnectionState.COMPLETED -> setConnectionState(ServerConnectionState.CONNECTED)
@@ -140,9 +156,12 @@ class ErmeteConnectionManager(
 
               override fun onIceConnectionReceivingChange(receiving: Boolean) = Unit
 
-              override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) = Unit
+              override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {
+                addDebugLog("ICE gathering state: $state")
+              }
 
               override fun onIceCandidate(candidate: IceCandidate) {
+                addDebugLog("Local ICE candidate generated")
                 val json =
                     JSONObject()
                         .put("type", "candidate")
@@ -162,17 +181,22 @@ class ErmeteConnectionManager(
               override fun onRemoveStream(stream: org.webrtc.MediaStream) = Unit
 
               override fun onDataChannel(dataChannel: org.webrtc.DataChannel) {
+                addDebugLog("Remote data channel opened: ${dataChannel.label()}")
                 cmdDataChannel = dataChannel
                 dataChannel.registerObserver(
                     object : org.webrtc.DataChannel.Observer {
                       override fun onBufferedAmountChange(previousAmount: Long) = Unit
 
-                      override fun onStateChange() = Unit
+                      override fun onStateChange() {
+                        addDebugLog("Data channel state changed: ${dataChannel.state()}")
+                      }
 
                       override fun onMessage(buffer: org.webrtc.DataChannel.Buffer) {
                         val bytes = ByteArray(buffer.data.remaining())
                         buffer.data.get(bytes)
-                        Log.d(TAG, "DataChannel recv: ${String(bytes)}")
+                        val payload = String(bytes)
+                        addDebugLog("Data channel message: $payload")
+                        Log.d(TAG, "DataChannel recv: $payload")
                       }
                     })
               }
@@ -195,25 +219,30 @@ class ErmeteConnectionManager(
 
     val init = org.webrtc.DataChannel.Init()
     val outboundDataChannel = peerConnection?.createDataChannel("cmd", init)
+    addDebugLog("Created local data channel: cmd")
     cmdDataChannel = outboundDataChannel
   }
 
   private fun createAndSendOffer() {
     val pc = peerConnection ?: return
+    addDebugLog("Creating local SDP offer")
     pc.createOffer(
         object : org.webrtc.SdpObserver {
           override fun onCreateSuccess(description: SessionDescription?) {
             description ?: return
             pc.setLocalDescription(noopSdpObserver, description)
             val offer = JSONObject().put("type", "offer").put("sdp", description.description)
+            addDebugLog("Sending SDP offer to signaling server")
             ws?.send(offer.toString())
           }
 
           override fun onSetSuccess() = Unit
 
           override fun onCreateFailure(error: String?) {
+            val reason = "Offer failed: ${error ?: "unknown"}"
+            addDebugLog(reason)
             setConnectionState(ServerConnectionState.FAILED)
-            Log.e(TAG, "Offer failed: $error")
+            Log.e(TAG, reason)
           }
 
           override fun onSetFailure(error: String?) = Unit
@@ -224,15 +253,18 @@ class ErmeteConnectionManager(
   private val webSocketListener =
       object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
+          addDebugLog("WebSocket opened: HTTP ${response.code}")
           setConnectionState(ServerConnectionState.SIGNALING)
           createAndSendOffer()
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
+          addDebugLog("Signaling message received (${text.length} chars)")
           runCatching {
                 val json = JSONObject(text)
                 when (json.getString("type")) {
                   "answer" -> {
+                    addDebugLog("Received SDP answer")
                     val sdp = json.getString("sdp")
                     peerConnection?.setRemoteDescription(
                         noopSdpObserver,
@@ -240,6 +272,7 @@ class ErmeteConnectionManager(
                     sendPing()
                   }
                   "candidate" -> {
+                    addDebugLog("Received remote ICE candidate")
                     val candidate = json.getJSONObject("candidate")
                     peerConnection?.addIceCandidate(
                         IceCandidate(
@@ -247,30 +280,41 @@ class ErmeteConnectionManager(
                             candidate.getInt("sdpMLineIndex"),
                             candidate.getString("candidate")))
                   }
-                  "bye" -> close()
-                  "error" -> {
-                    setConnectionState(ServerConnectionState.FAILED)
-                    Log.e(TAG, "Server error: ${json.optString("message")}")
+                  "bye" -> {
+                    addDebugLog("Received server bye")
+                    close()
                   }
+                  "error" -> {
+                    val message = json.optString("message")
+                    addDebugLog("Server error: $message")
+                    setConnectionState(ServerConnectionState.FAILED)
+                    Log.e(TAG, "Server error: $message")
+                  }
+                  else -> addDebugLog("Unknown signaling message type: ${json.optString("type")}")
                 }
               }
               .onFailure {
+                addDebugLog("Signaling parse error: ${it.message ?: "unknown"}")
                 setConnectionState(ServerConnectionState.FAILED)
                 Log.e(TAG, "WS parse error", it)
               }
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+          val serverCode = response?.code?.toString() ?: "n/a"
+          addDebugLog("WebSocket failure (http=$serverCode): ${t.message ?: "unknown"}")
           setConnectionState(ServerConnectionState.FAILED)
           Log.e(TAG, "WebSocket failure", t)
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+          addDebugLog("WebSocket closing: code=$code reason=$reason")
           setConnectionState(ServerConnectionState.DISCONNECTED)
           super.onClosing(webSocket, code, reason)
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+          addDebugLog("WebSocket closed: code=$code reason=$reason")
           setConnectionState(ServerConnectionState.DISCONNECTED)
           super.onClosed(webSocket, code, reason)
         }
@@ -278,8 +322,13 @@ class ErmeteConnectionManager(
 
   private fun setConnectionState(newState: ServerConnectionState) {
     if (connectionState == newState) return
+    addDebugLog("Connection state changed: $connectionState -> $newState")
     connectionState = newState
     onConnectionStateChanged(newState)
+  }
+
+  private fun addDebugLog(message: String) {
+    onDebugLog(ConnectionDebugLogEntry(timestampMs = System.currentTimeMillis(), message = message))
   }
 
   private val noopSdpObserver =
@@ -291,6 +340,7 @@ class ErmeteConnectionManager(
         override fun onCreateFailure(error: String?) = Unit
 
         override fun onSetFailure(error: String?) {
+          addDebugLog("SDP set failure: ${error ?: "unknown"}")
           Log.e(TAG, "SDP set failure: $error")
         }
       }
