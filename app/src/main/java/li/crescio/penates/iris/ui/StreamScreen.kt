@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meta.wearable.dat.camera.types.StreamSessionState
 import li.crescio.penates.iris.R
+import li.crescio.penates.iris.stream.ServerConnectionState
 import li.crescio.penates.iris.stream.StreamUiState
 import li.crescio.penates.iris.stream.StreamViewModel
 import li.crescio.penates.iris.wearables.WearablesViewModel
@@ -103,6 +104,7 @@ private fun StreamCameraPage(
   Box(modifier = Modifier.fillMaxSize()) {
     WebRtcStatusIndicator(
         streamSessionState = uiState.streamSessionState,
+        serverConnectionState = uiState.serverConnectionState,
         modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(16.dp),
     )
 
@@ -141,7 +143,11 @@ private fun StreamCameraPage(
 }
 
 @Composable
-private fun WebRtcStatusIndicator(streamSessionState: StreamSessionState, modifier: Modifier = Modifier) {
+private fun WebRtcStatusIndicator(
+    streamSessionState: StreamSessionState,
+    serverConnectionState: ServerConnectionState,
+    modifier: Modifier = Modifier,
+) {
   Box(
       modifier =
           modifier.background(
@@ -154,6 +160,7 @@ private fun WebRtcStatusIndicator(streamSessionState: StreamSessionState, modifi
             stringResource(
                 R.string.webrtc_status_label,
                 streamSessionState.name.lowercase().replaceFirstChar(Char::uppercase),
+                serverConnectionState.name.lowercase().replaceFirstChar(Char::uppercase),
             ),
         style = MaterialTheme.typography.labelLarge,
         color = Color.White,

@@ -61,7 +61,11 @@ class StreamViewModel(
 
   fun startStream(serverHttpUrl: String) {
     stopStream()
-    connectionManager = ErmeteConnectionManager(getApplication(), viewModelScope).also { it.connect(serverHttpUrl) }
+    connectionManager =
+        ErmeteConnectionManager(getApplication(), viewModelScope) { connectionState ->
+          _uiState.update { current -> current.copy(serverConnectionState = connectionState) }
+        }
+            .also { it.connect(serverHttpUrl) }
 
     val newSession =
         Wearables.startStreamSession(
@@ -113,7 +117,10 @@ class StreamViewModel(
 
   fun capturePhoto(serverHttpUrl: String) {
     val state = _uiState.value
-    if (state.isCapturing || state.streamSessionState != StreamSessionState.STREAMING) return
+    if (
+        state.isCapturing ||
+            state.streamSessionState != StreamSessionState.STREAMING ||
+            state.serverConnectionState != ServerConnectionState.CONNECTED) return
 
     _uiState.update { it.copy(isCapturing = true) }
     viewModelScope.launch {

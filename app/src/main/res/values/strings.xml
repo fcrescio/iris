@@ -56,5 +56,5 @@
     <string name="getting_started_tip_photo" description="Tip about photo capture">Capture photos by tapping the camera button.</string>
     <string name="getting_started_continue" description="Continue button">Continue</string>
     <string name="settings_server_http_url_label" description="Server HTTP URL label">Server URL</string>
-    <string name="webrtc_status_label" description="WebRTC connection status label">WebRTC: %1$s</string>
+    <string name="webrtc_status_label" description="WebRTC connection status label">Wearable: %1$s · Server: %2$s</string>
 </resources>
