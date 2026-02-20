@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -75,6 +76,7 @@ fun NonStreamScreen(
   val activity = LocalActivity.current
   val context = LocalContext.current
   var menuOpen by remember { mutableStateOf(false) }
+  var isSettingsSheetVisible by remember { mutableStateOf(false) }
 
   LaunchedEffect(state.shouldAutoStartStreaming, state.hasActiveDevice) {
     if (!state.shouldAutoStartStreaming || !state.hasActiveDevice) return@LaunchedEffect
@@ -98,6 +100,18 @@ fun NonStreamScreen(
           },
       )
 
+      IconButton(
+          onClick = { isSettingsSheetVisible = true },
+          modifier = Modifier.align(Alignment.TopStart).systemBarsPadding(),
+      ) {
+        Icon(
+            imageVector = Icons.Default.Settings,
+            contentDescription = stringResource(R.string.settings_button_title),
+            tint = Color.White,
+            modifier = Modifier.size(28.dp),
+        )
+      }
+
       NonStreamContent()
 
       StreamEntryArea(
@@ -118,6 +132,20 @@ fun NonStreamScreen(
                   viewModel.hideGettingStartedSheet()
                 }
               }
+          )
+        }
+      }
+
+      if (isSettingsSheetVisible) {
+        ModalBottomSheet(
+            onDismissRequest = { isSettingsSheetVisible = false },
+            sheetState = sheetState,
+        ) {
+          SettingsScreen(
+              photoIntervalMs = state.photoIntervalMs,
+              onPhotoIntervalChange = viewModel::setPhotoIntervalMs,
+              serverHttpUrl = state.serverHttpUrl,
+              onServerHttpUrlChange = viewModel::setServerHttpUrl,
           )
         }
       }

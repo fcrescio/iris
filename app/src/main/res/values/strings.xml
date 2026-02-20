@@ -17,6 +17,7 @@
     <!-- Stream Screen -->
     <string name="live_stream" description="Live Stream">Live stream</string>
     <string name="settings_title" description="Settings screen title">Settings</string>
+    <string name="settings_button_title" description="Open settings button label">Open settings</string>
     <string name="settings_interval_label" description="Photo interval label">Photo interval: %1$d %2$s</string>
     <string name="settings_interval_unit" description="Photo interval unit">seconds</string>
 
