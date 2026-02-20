@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.io.ByteArrayOutputStream
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import li.crescio.penates.iris.wearables.WearablesViewModel
 
@@ -108,7 +109,7 @@ class StreamViewModel(
     stopAutoCapture()
     autoCaptureJob =
         viewModelScope.launch {
-          while (true) {
+          while (isActive) {
             capturePhoto(wearablesViewModel.uiState.value.serverHttpUrl)
             delay(intervalMs)
           }
@@ -140,15 +141,21 @@ class StreamViewModel(
 
     _uiState.update { it.copy(isCapturing = true) }
     viewModelScope.launch {
-      streamSession
-          ?.capturePhoto()
-          ?.onSuccess {
-            val bitmap = decodePhoto(it)
-            _uiState.update { current -> current.copy(capturedPhoto = bitmap) }
-            connectionManager?.sendFrame(serverHttpUrl, bitmap.toJpegBytes())
-          }
-          ?.onFailure { Log.e(TAG, "Photo capture failed") }
-      _uiState.update { it.copy(isCapturing = false) }
+      try {
+        streamSession
+            ?.capturePhoto()
+            ?.onSuccess {
+              runCatching {
+                    val bitmap = decodePhoto(it)
+                    _uiState.update { current -> current.copy(capturedPhoto = bitmap) }
+                    connectionManager?.sendFrame(serverHttpUrl, bitmap.toJpegBytes())
+                  }
+                  .onFailure { error -> Log.e(TAG, "Failed to process captured photo", error) }
+            }
+            ?.onFailure { error -> Log.e(TAG, "Photo capture failed", error) }
+      } finally {
+        _uiState.update { it.copy(isCapturing = false) }
+      }
     }
   }
 
