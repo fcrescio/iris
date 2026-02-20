@@ -62,9 +62,14 @@ class StreamViewModel(
   fun startStream(serverHttpUrl: String) {
     stopStream()
     connectionManager =
-        ErmeteConnectionManager(getApplication(), viewModelScope) { connectionState ->
-          _uiState.update { current -> current.copy(serverConnectionState = connectionState) }
-        }
+        ErmeteConnectionManager(
+                context = getApplication(),
+                scope = viewModelScope,
+                onConnectionStateChanged = { connectionState ->
+                  _uiState.update { current -> current.copy(serverConnectionState = connectionState) }
+                },
+                onDebugLog = ::appendConnectionDebugLog,
+            )
             .also { it.connect(serverHttpUrl) }
 
     val newSession =
@@ -113,6 +118,17 @@ class StreamViewModel(
   fun stopAutoCapture() {
     autoCaptureJob?.cancel()
     autoCaptureJob = null
+  }
+
+
+  fun clearConnectionDebugLog() {
+    _uiState.update { current -> current.copy(connectionDebugLog = emptyList()) }
+  }
+
+  private fun appendConnectionDebugLog(entry: ConnectionDebugLogEntry) {
+    _uiState.update { current ->
+      current.copy(connectionDebugLog = (current.connectionDebugLog + entry).takeLast(250))
+    }
   }
 
   fun capturePhoto(serverHttpUrl: String) {

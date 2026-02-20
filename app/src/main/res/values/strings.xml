@@ -57,4 +57,10 @@
     <string name="getting_started_continue" description="Continue button">Continue</string>
     <string name="settings_server_http_url_label" description="Server HTTP URL label">Server URL</string>
     <string name="webrtc_status_label" description="WebRTC connection status label">Wearable: %1$s · Server: %2$s</string>
+    <string name="settings_connection_debug_title" description="Connection debug section title">Connection debug log</string>
+    <string name="settings_connection_debug_copy" description="Copy connection debug log button">Copy log</string>
+    <string name="settings_connection_debug_clear" description="Clear connection debug log button">Clear log</string>
+    <string name="settings_connection_debug_log_label" description="Connection debug log field label">Detailed log</string>
+    <string name="settings_connection_debug_empty" description="Connection debug empty state">No debug events yet.</string>
+    <string name="settings_connection_debug_hint" description="Connection debug hint">Tip: Share this log when reporting connectivity issues. It includes signaling, ICE, and WebSocket details.</string>
 </resources>

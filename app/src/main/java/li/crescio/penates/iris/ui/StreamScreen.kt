@@ -90,6 +90,8 @@ fun StreamScreen(
               onPhotoIntervalChange = wearablesViewModel::setPhotoIntervalMs,
               serverHttpUrl = wearablesState.serverHttpUrl,
               onServerHttpUrlChange = wearablesViewModel::setServerHttpUrl,
+              connectionDebugLog = streamState.connectionDebugLog,
+              onClearConnectionDebugLog = streamViewModel::clearConnectionDebugLog,
           )
     }
   }

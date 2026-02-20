@@ -17,4 +17,5 @@ data class StreamUiState(
     val serverConnectionState: ServerConnectionState = ServerConnectionState.DISCONNECTED,
     val capturedPhoto: Bitmap? = null,
     val isCapturing: Boolean = false,
+    val connectionDebugLog: List<ConnectionDebugLogEntry> = emptyList(),
 )
