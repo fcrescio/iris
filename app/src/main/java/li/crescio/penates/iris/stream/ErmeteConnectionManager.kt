@@ -53,9 +53,7 @@ class ErmeteConnectionManager(
   fun connect(serverHttpUrl: String) {
     close()
 
-    val wsUrl =
-        serverHttpUrl.replaceFirst("http://", "ws://").replaceFirst("https://", "wss://") +
-            "/v1/ws"
+    val wsUrl = buildSignalingWebSocketUrl(serverHttpUrl)
 
     addDebugLog("Starting connection to $serverHttpUrl")
     addDebugLog("Opening signaling WebSocket at $wsUrl")
@@ -69,11 +67,12 @@ class ErmeteConnectionManager(
   }
 
   fun sendFrame(serverHttpUrl: String, bytes: ByteArray) {
+    val frameUploadUrl = buildFrameUploadUrl(serverHttpUrl)
     scope.launch(Dispatchers.IO) {
       runCatching {
             val request =
                 Request.Builder()
-                    .url("$serverHttpUrl/v1/frames")
+                    .url(frameUploadUrl)
                     .addHeader("Content-Type", "image/jpeg")
                     .addHeader("X-Frame-Id", UUID.randomUUID().toString())
                     .post(bytes.toRequestBody("image/jpeg".toMediaType()))
@@ -87,10 +86,49 @@ class ErmeteConnectionManager(
             }
           }
           .onFailure {
-            addDebugLog("Frame upload error: ${it.message ?: "unknown"}")
+            addDebugLog("Frame upload error ($frameUploadUrl): ${it.message ?: "unknown"}")
             Log.e(TAG, "Frame upload error", it)
           }
     }
+  }
+
+  private fun buildSignalingWebSocketUrl(serverHttpUrl: String): String {
+    val normalizedBaseUrl = normalizeBaseUrl(serverHttpUrl)
+    val websocketBaseUrl =
+        when {
+          normalizedBaseUrl.startsWith("http://") -> normalizedBaseUrl.replaceFirst("http://", "ws://")
+          normalizedBaseUrl.startsWith("https://") -> normalizedBaseUrl.replaceFirst("https://", "wss://")
+          normalizedBaseUrl.startsWith("ws://") || normalizedBaseUrl.startsWith("wss://") -> normalizedBaseUrl
+          else -> "ws://$normalizedBaseUrl"
+        }
+
+    return "$websocketBaseUrl/v1/ws"
+  }
+
+  private fun buildFrameUploadUrl(serverHttpUrl: String): String {
+    val normalizedBaseUrl = normalizeBaseUrl(serverHttpUrl)
+    val httpBaseUrl =
+        when {
+          normalizedBaseUrl.startsWith("ws://") -> normalizedBaseUrl.replaceFirst("ws://", "http://")
+          normalizedBaseUrl.startsWith("wss://") -> normalizedBaseUrl.replaceFirst("wss://", "https://")
+          else -> normalizedBaseUrl
+        }
+
+    return "$httpBaseUrl/v1/frames"
+  }
+
+  private fun normalizeBaseUrl(serverHttpUrl: String): String {
+    val trimmed = serverHttpUrl.trim().trimEnd('/')
+    val withScheme =
+        if (trimmed.startsWith("http://") ||
+            trimmed.startsWith("https://") ||
+            trimmed.startsWith("ws://") ||
+            trimmed.startsWith("wss://")) {
+          trimmed
+        } else {
+          "http://$trimmed"
+        }
+    return withScheme.removeSuffix("/v1/ws").removeSuffix("/v1/frames")
   }
 
   fun sendPing() {
@@ -303,6 +341,10 @@ class ErmeteConnectionManager(
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
           val serverCode = response?.code?.toString() ?: "n/a"
           addDebugLog("WebSocket failure (http=$serverCode): ${t.message ?: "unknown"}")
+          if (t.message?.contains("Unable to parse TLS packet header", ignoreCase = true) == true) {
+            addDebugLog(
+                "TLS handshake failed. If your server is plain WS on this port, use http:// or ws:// instead of https://.")
+          }
           setConnectionState(ServerConnectionState.FAILED)
           Log.e(TAG, "WebSocket failure", t)
         }
