@@ -45,12 +45,13 @@ fun SettingsScreen(
     onPhotoIntervalChange: (Long) -> Unit,
     serverHttpUrl: String,
     onServerHttpUrlChange: (String) -> Unit,
-    connectionDebugLog: List<ConnectionDebugLogEntry>,
-    onClearConnectionDebugLog: () -> Unit,
+    connectionDebugLog: List<ConnectionDebugLogEntry> = emptyList(),
+    onClearConnectionDebugLog: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
   val clipboardManager = LocalClipboardManager.current
   val logText = connectionDebugLog.toDebugText()
+  val emptyDebugLogText = stringResource(R.string.settings_connection_debug_empty)
 
   Column(
       modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
@@ -90,8 +91,7 @@ fun SettingsScreen(
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
       OutlinedButton(
           onClick = {
-            clipboardManager.setText(
-                AnnotatedString(logText.ifEmpty { stringResource(R.string.settings_connection_debug_empty) }))
+            clipboardManager.setText(AnnotatedString(logText.ifEmpty { emptyDebugLogText }))
           },
           modifier = Modifier.weight(1f),
       ) {
@@ -104,7 +104,7 @@ fun SettingsScreen(
     }
 
     OutlinedTextField(
-        value = logText.ifEmpty { stringResource(R.string.settings_connection_debug_empty) },
+        value = logText.ifEmpty { emptyDebugLogText },
         onValueChange = {},
         readOnly = true,
         minLines = 8,
