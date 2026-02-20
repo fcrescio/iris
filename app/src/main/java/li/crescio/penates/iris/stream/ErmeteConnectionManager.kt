@@ -22,6 +22,7 @@ import org.webrtc.PeerConnectionFactory
 import org.webrtc.RtpTransceiver
 import org.webrtc.SessionDescription
 import org.webrtc.audio.JavaAudioDeviceModule
+import java.net.URI
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -54,13 +55,15 @@ class ErmeteConnectionManager(
     close()
 
     val wsUrl = buildSignalingWebSocketUrl(serverHttpUrl)
+    val iceServers = buildIceServers(serverHttpUrl)
 
     addDebugLog("Starting connection to $serverHttpUrl")
     addDebugLog("Opening signaling WebSocket at $wsUrl")
+    addDebugLog("Using ${iceServers.size} ICE server(s)")
 
     setConnectionState(ServerConnectionState.CONNECTING)
     initializePeerConnectionFactory()
-    createPeerConnection()
+    createPeerConnection(iceServers)
 
     wsClient = OkHttpClient.Builder().readTimeout(0, TimeUnit.MILLISECONDS).build()
     ws = wsClient!!.newWebSocket(Request.Builder().url(wsUrl).build(), webSocketListener)
@@ -131,6 +134,18 @@ class ErmeteConnectionManager(
     return withScheme.removeSuffix("/v1/ws").removeSuffix("/v1/frames")
   }
 
+  private fun buildIceServers(serverHttpUrl: String): List<PeerConnection.IceServer> {
+    val normalizedBaseUrl = normalizeBaseUrl(serverHttpUrl)
+    val host = runCatching { URI(normalizedBaseUrl).host }.getOrNull().orEmpty()
+
+    val stunUrls = linkedSetOf("stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478")
+    if (host.isNotBlank()) {
+      stunUrls += "stun:$host:3478"
+    }
+
+    return stunUrls.map { url -> PeerConnection.IceServer.builder(url).createIceServer() }
+  }
+
   fun sendPing() {
     val payload = JSONObject().put("type", "ping").put("text", "hello from iris")
     addDebugLog("Sending ping on cmd data channel")
@@ -171,8 +186,8 @@ class ErmeteConnectionManager(
         PeerConnectionFactory.builder().setAudioDeviceModule(adm).createPeerConnectionFactory()
   }
 
-  private fun createPeerConnection() {
-    val rtcConfig = PeerConnection.RTCConfiguration(emptyList())
+  private fun createPeerConnection(iceServers: List<PeerConnection.IceServer>) {
+    val rtcConfig = PeerConnection.RTCConfiguration(iceServers)
     addDebugLog("Creating RTCPeerConnection")
     peerConnection =
         peerConnectionFactory?.createPeerConnection(
