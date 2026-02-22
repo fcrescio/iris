@@ -37,6 +37,7 @@ class ErmeteConnectionManager(
     private const val TAG = "ErmeteConnection"
     private const val AUDIO_TRACK_ID = "iris-audio-track"
     private const val STREAM_ID = "iris-stream"
+    private const val ERMETE_PSK_HEADER = "X-Ermete-PSK"
   }
 
   private val httpClient = OkHttpClient.Builder().readTimeout(0, TimeUnit.MILLISECONDS).build()
@@ -51,13 +52,20 @@ class ErmeteConnectionManager(
 
   private var connectionState = ServerConnectionState.DISCONNECTED
 
-  fun connect(serverHttpUrl: String) {
+  fun connect(serverHttpUrl: String, ermetePsk: String) {
     close()
+
+    val trimmedPsk = ermetePsk.trim()
+    if (trimmedPsk.isEmpty()) {
+      addDebugLog("Missing Ermete PSK, refusing connection")
+      setConnectionState(ServerConnectionState.FAILED)
+      return
+    }
 
     val wsUrl = buildSignalingWebSocketUrl(serverHttpUrl)
     val iceServers = buildIceServers(serverHttpUrl)
 
-    addDebugLog("Starting connection to $serverHttpUrl")
+    addDebugLog("Starting connection to $serverHttpUrl (role=client)")
     addDebugLog("Opening signaling WebSocket at $wsUrl")
     addDebugLog("Using ${iceServers.size} ICE server(s)")
 
@@ -66,10 +74,21 @@ class ErmeteConnectionManager(
     createPeerConnection(iceServers)
 
     wsClient = OkHttpClient.Builder().readTimeout(0, TimeUnit.MILLISECONDS).build()
-    ws = wsClient!!.newWebSocket(Request.Builder().url(wsUrl).build(), webSocketListener)
+    val wsRequest =
+        Request.Builder()
+            .url(wsUrl)
+            .addHeader(ERMETE_PSK_HEADER, trimmedPsk)
+            .build()
+    ws = wsClient!!.newWebSocket(wsRequest, webSocketListener)
   }
 
-  fun sendFrame(serverHttpUrl: String, bytes: ByteArray) {
+  fun sendFrame(serverHttpUrl: String, ermetePsk: String, bytes: ByteArray) {
+    val trimmedPsk = ermetePsk.trim()
+    if (trimmedPsk.isEmpty()) {
+      addDebugLog("Skipping frame upload: missing Ermete PSK")
+      return
+    }
+
     val frameUploadUrl = buildFrameUploadUrl(serverHttpUrl)
     scope.launch(Dispatchers.IO) {
       runCatching {
@@ -77,6 +96,7 @@ class ErmeteConnectionManager(
                 Request.Builder()
                     .url(frameUploadUrl)
                     .addHeader("Content-Type", "image/jpeg")
+                    .addHeader(ERMETE_PSK_HEADER, trimmedPsk)
                     .addHeader("X-Frame-Id", UUID.randomUUID().toString())
                     .post(bytes.toRequestBody("image/jpeg".toMediaType()))
                     .build()
@@ -105,7 +125,7 @@ class ErmeteConnectionManager(
           else -> "ws://$normalizedBaseUrl"
         }
 
-    return "$websocketBaseUrl/v1/ws"
+    return "$websocketBaseUrl/v1/ws?role=client"
   }
 
   private fun buildFrameUploadUrl(serverHttpUrl: String): String {

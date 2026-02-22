@@ -100,6 +100,8 @@ class WearablesViewModel(application: Application) : AndroidViewModel(applicatio
 
   fun setServerHttpUrl(url: String) = updateState { copy(serverHttpUrl = url) }
 
+  fun setErmetePsk(psk: String) = updateState { copy(ermetePsk = psk) }
+
   private fun observeActiveDevice() {
     activeDeviceJob =
         viewModelScope.launch {
