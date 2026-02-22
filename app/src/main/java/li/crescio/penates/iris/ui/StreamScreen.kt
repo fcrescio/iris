@@ -15,6 +15,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -113,6 +114,9 @@ private fun StreamCameraPage(
     WebRtcStatusIndicator(
         streamSessionState = uiState.streamSessionState,
         serverConnectionState = uiState.serverConnectionState,
+        isCameraReady =
+            uiState.streamSessionState == StreamSessionState.STREAMING &&
+                uiState.serverConnectionState == ServerConnectionState.CONNECTED,
         modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(16.dp),
     )
 
@@ -154,6 +158,7 @@ private fun StreamCameraPage(
 private fun WebRtcStatusIndicator(
     streamSessionState: StreamSessionState,
     serverConnectionState: ServerConnectionState,
+    isCameraReady: Boolean,
     modifier: Modifier = Modifier,
 ) {
   Box(
@@ -163,15 +168,25 @@ private fun WebRtcStatusIndicator(
               shape = RoundedCornerShape(12.dp),
           ).padding(horizontal = 12.dp, vertical = 8.dp)
   ) {
-    Text(
-        text =
-            stringResource(
-                R.string.webrtc_status_label,
-                streamSessionState.name.lowercase().replaceFirstChar(Char::uppercase),
-                serverConnectionState.name.lowercase().replaceFirstChar(Char::uppercase),
-            ),
-        style = MaterialTheme.typography.labelLarge,
-        color = Color.White,
-    )
+    Column {
+      Text(
+          text =
+              stringResource(
+                  R.string.webrtc_status_label,
+                  streamSessionState.name.lowercase().replaceFirstChar(Char::uppercase),
+                  serverConnectionState.name.lowercase().replaceFirstChar(Char::uppercase),
+              ),
+          style = MaterialTheme.typography.labelLarge,
+          color = Color.White,
+      )
+      Text(
+          text =
+              stringResource(
+                  if (isCameraReady) R.string.camera_ready_label else R.string.camera_not_ready_label,
+              ),
+          style = MaterialTheme.typography.labelSmall,
+          color = if (isCameraReady) Color(0xFF9EF0A0) else Color(0xFFFFB4AB),
+      )
+    }
   }
 }

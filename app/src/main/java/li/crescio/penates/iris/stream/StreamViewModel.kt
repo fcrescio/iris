@@ -59,9 +59,15 @@ class StreamViewModel(
   private var streamStateJob: Job? = null
   private var autoCaptureJob: Job? = null
   private var connectionManager: ErmeteConnectionManager? = null
+  private var lastCaptureBlockReason: String? = null
 
   fun startStream(serverHttpUrl: String, ermetePsk: String) {
     stopStream()
+    appendConnectionDebugLog(
+        ConnectionDebugLogEntry(
+            timestampMs = System.currentTimeMillis(),
+            message = "Starting DAT stream session and signaling connection",
+        ))
     connectionManager =
         ErmeteConnectionManager(
                 context = getApplication(),
@@ -86,7 +92,19 @@ class StreamViewModel(
           newSession.state.collect { state ->
             val previous = _uiState.value.streamSessionState
             _uiState.update { it.copy(streamSessionState = state) }
+            if (previous != state) {
+              appendConnectionDebugLog(
+                  ConnectionDebugLogEntry(
+                      timestampMs = System.currentTimeMillis(),
+                      message = "Wearable stream session state: $previous -> $state",
+                  ))
+            }
             if (previous != state && state == StreamSessionState.STOPPED) {
+              appendConnectionDebugLog(
+                  ConnectionDebugLogEntry(
+                      timestampMs = System.currentTimeMillis(),
+                      message = "Wearable stream stopped; disconnecting",
+                  ))
               stopStream()
               wearablesViewModel.navigateToDeviceSelection()
             }
@@ -95,6 +113,11 @@ class StreamViewModel(
   }
 
   fun stopStream() {
+    appendConnectionDebugLog(
+        ConnectionDebugLogEntry(
+            timestampMs = System.currentTimeMillis(),
+            message = "Stopping stream session",
+        ))
     stopAutoCapture()
     streamStateJob?.cancel()
     streamStateJob = null
@@ -102,6 +125,7 @@ class StreamViewModel(
     connectionManager?.close()
     connectionManager = null
     streamSession = null
+    lastCaptureBlockReason = null
     _uiState.update { INITIAL }
   }
 
@@ -135,25 +159,67 @@ class StreamViewModel(
 
   fun capturePhoto(serverHttpUrl: String, ermetePsk: String) {
     val state = _uiState.value
-    if (
-        state.isCapturing ||
-            state.streamSessionState != StreamSessionState.STREAMING ||
-            state.serverConnectionState != ServerConnectionState.CONNECTED) return
+    val blockReason =
+        when {
+          state.isCapturing -> "capture already in progress"
+          state.streamSessionState != StreamSessionState.STREAMING ->
+              "wearable session is ${state.streamSessionState}"
+          state.serverConnectionState != ServerConnectionState.CONNECTED ->
+              "server signaling is ${state.serverConnectionState}"
+          else -> null
+        }
+    if (blockReason != null) {
+      if (blockReason != lastCaptureBlockReason) {
+        appendConnectionDebugLog(
+            ConnectionDebugLogEntry(
+                timestampMs = System.currentTimeMillis(),
+                message = "Skipping snapshot: $blockReason",
+            ))
+        lastCaptureBlockReason = blockReason
+      }
+      return
+    }
+
+    lastCaptureBlockReason = null
 
     _uiState.update { it.copy(isCapturing = true) }
     viewModelScope.launch {
       try {
+        appendConnectionDebugLog(
+            ConnectionDebugLogEntry(
+                timestampMs = System.currentTimeMillis(),
+                message = "Triggering wearable snapshot",
+            ))
         streamSession
             ?.capturePhoto()
             ?.onSuccess {
               runCatching {
                     val bitmap = decodePhoto(it)
                     _uiState.update { current -> current.copy(capturedPhoto = bitmap) }
+                    appendConnectionDebugLog(
+                        ConnectionDebugLogEntry(
+                            timestampMs = System.currentTimeMillis(),
+                            message = "Snapshot captured (${bitmap.width}x${bitmap.height}), uploading",
+                        ))
                     connectionManager?.sendFrame(serverHttpUrl, ermetePsk, bitmap.toJpegBytes())
                   }
-                  .onFailure { error -> Log.e(TAG, "Failed to process captured photo", error) }
+                  .onFailure { error ->
+                    appendConnectionDebugLog(
+                        ConnectionDebugLogEntry(
+                            timestampMs = System.currentTimeMillis(),
+                            message =
+                                "Snapshot processing failed: ${error.message ?: "unknown error"}",
+                        ))
+                    Log.e(TAG, "Failed to process captured photo", error)
+                  }
+            }?.onFailure { error ->
+              appendConnectionDebugLog(
+                  ConnectionDebugLogEntry(
+                      timestampMs = System.currentTimeMillis(),
+                      message = "Wearable snapshot failed: ${error.message ?: "unknown error"}",
+                  ))
+              Log.e(TAG, "Photo capture failed", error)
             }
-            ?.onFailure { error -> Log.e(TAG, "Photo capture failed", error) }
       } finally {
         _uiState.update { it.copy(isCapturing = false) }
       }
