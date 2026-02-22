@@ -147,6 +147,8 @@ fun NonStreamScreen(
               onPhotoIntervalChange = viewModel::setPhotoIntervalMs,
               serverHttpUrl = state.serverHttpUrl,
               onServerHttpUrlChange = viewModel::setServerHttpUrl,
+              ermetePsk = state.ermetePsk,
+              onErmetePskChange = viewModel::setErmetePsk,
           )
         }
       }

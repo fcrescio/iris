@@ -45,6 +45,8 @@ fun SettingsScreen(
     onPhotoIntervalChange: (Long) -> Unit,
     serverHttpUrl: String,
     onServerHttpUrlChange: (String) -> Unit,
+    ermetePsk: String,
+    onErmetePskChange: (String) -> Unit,
     connectionDebugLog: List<ConnectionDebugLogEntry> = emptyList(),
     onClearConnectionDebugLog: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -79,6 +81,14 @@ fun SettingsScreen(
         value = serverHttpUrl,
         onValueChange = onServerHttpUrlChange,
         label = { Text(stringResource(R.string.settings_server_http_url_label)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    OutlinedTextField(
+        value = ermetePsk,
+        onValueChange = onErmetePskChange,
+        label = { Text(stringResource(R.string.settings_ermete_psk_label)) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )

@@ -67,7 +67,9 @@ fun StreamScreen(
   val wearablesState by wearablesViewModel.uiState.collectAsStateWithLifecycle()
   val pagerState = rememberPagerState(initialPage = STREAM_PAGE, pageCount = { 2 })
 
-  LaunchedEffect(wearablesState.serverHttpUrl) { streamViewModel.startStream(wearablesState.serverHttpUrl) }
+  LaunchedEffect(wearablesState.serverHttpUrl, wearablesState.ermetePsk) {
+    streamViewModel.startStream(wearablesState.serverHttpUrl, wearablesState.ermetePsk)
+  }
   LaunchedEffect(wearablesState.photoIntervalMs) {
     streamViewModel.startAutoCapture(wearablesState.photoIntervalMs)
   }
@@ -82,7 +84,9 @@ fun StreamScreen(
                 streamViewModel.stopStream()
                 wearablesViewModel.navigateToDeviceSelection()
               },
-              onCapturePhoto = { streamViewModel.capturePhoto(wearablesState.serverHttpUrl) },
+              onCapturePhoto = {
+                streamViewModel.capturePhoto(wearablesState.serverHttpUrl, wearablesState.ermetePsk)
+              },
           )
       SETTINGS_PAGE ->
           SettingsScreen(
@@ -90,6 +94,8 @@ fun StreamScreen(
               onPhotoIntervalChange = wearablesViewModel::setPhotoIntervalMs,
               serverHttpUrl = wearablesState.serverHttpUrl,
               onServerHttpUrlChange = wearablesViewModel::setServerHttpUrl,
+              ermetePsk = wearablesState.ermetePsk,
+              onErmetePskChange = wearablesViewModel::setErmetePsk,
               connectionDebugLog = streamState.connectionDebugLog,
               onClearConnectionDebugLog = streamViewModel::clearConnectionDebugLog,
           )

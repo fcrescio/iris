@@ -16,6 +16,7 @@ plugins {
 val githubActionVersionName = providers.gradleProperty("appVersionName").orNull
 val defaultWebRtcAddress =
     providers.environmentVariable("DEFAULT_WEBRTC_ADDRESS").orElse("http://10.0.2.2:8080")
+val defaultErmetePsk = providers.environmentVariable("DEFAULT_ERMETE_PSK").orElse("")
 
 android {
   namespace = "li.crescio.penates.iris"
@@ -33,6 +34,7 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     vectorDrawables { useSupportLibrary = true }
     buildConfigField("String", "DEFAULT_WEBRTC_ADDRESS", "\"${defaultWebRtcAddress.get()}\"")
+    buildConfigField("String", "DEFAULT_ERMETE_PSK", "\"${defaultErmetePsk.get()}\"")
   }
 
   buildTypes {

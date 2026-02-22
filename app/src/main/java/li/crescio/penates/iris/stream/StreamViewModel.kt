@@ -60,7 +60,7 @@ class StreamViewModel(
   private var autoCaptureJob: Job? = null
   private var connectionManager: ErmeteConnectionManager? = null
 
-  fun startStream(serverHttpUrl: String) {
+  fun startStream(serverHttpUrl: String, ermetePsk: String) {
     stopStream()
     connectionManager =
         ErmeteConnectionManager(
@@ -71,7 +71,7 @@ class StreamViewModel(
                 },
                 onDebugLog = ::appendConnectionDebugLog,
             )
-            .also { it.connect(serverHttpUrl) }
+            .also { it.connect(serverHttpUrl, ermetePsk) }
 
     val newSession =
         Wearables.startStreamSession(
@@ -110,7 +110,8 @@ class StreamViewModel(
     autoCaptureJob =
         viewModelScope.launch {
           while (isActive) {
-            capturePhoto(wearablesViewModel.uiState.value.serverHttpUrl)
+            val state = wearablesViewModel.uiState.value
+            capturePhoto(state.serverHttpUrl, state.ermetePsk)
             delay(intervalMs)
           }
         }
@@ -132,7 +133,7 @@ class StreamViewModel(
     }
   }
 
-  fun capturePhoto(serverHttpUrl: String) {
+  fun capturePhoto(serverHttpUrl: String, ermetePsk: String) {
     val state = _uiState.value
     if (
         state.isCapturing ||
@@ -148,7 +149,7 @@ class StreamViewModel(
               runCatching {
                     val bitmap = decodePhoto(it)
                     _uiState.update { current -> current.copy(capturedPhoto = bitmap) }
-                    connectionManager?.sendFrame(serverHttpUrl, bitmap.toJpegBytes())
+                    connectionManager?.sendFrame(serverHttpUrl, ermetePsk, bitmap.toJpegBytes())
                   }
                   .onFailure { error -> Log.e(TAG, "Failed to process captured photo", error) }
             }
