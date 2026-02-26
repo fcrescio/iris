@@ -38,6 +38,8 @@ class ErmeteConnectionManager(
     private const val AUDIO_TRACK_ID = "iris-audio-track"
     private const val STREAM_ID = "iris-stream"
     private const val ERMETE_PSK_HEADER = "X-Ermete-PSK"
+    private const val OPUS_FMTP_PREFIX = "a=fmtp:"
+    private const val OPUS_DTX_PARAMETER = "usedtx=1"
   }
 
   private val httpClient = OkHttpClient.Builder().readTimeout(0, TimeUnit.MILLISECONDS).build()
@@ -284,7 +286,7 @@ class ErmeteConnectionManager(
               override fun onTrack(transceiver: RtpTransceiver) = Unit
             })
 
-    val source = peerConnectionFactory?.createAudioSource(MediaConstraints())
+    val source = peerConnectionFactory?.createAudioSource(buildAudioSourceConstraints())
     audioSource = source
     audioTrack = peerConnectionFactory?.createAudioTrack(AUDIO_TRACK_ID, source)
     peerConnection?.addTrack(audioTrack, listOf(STREAM_ID))
@@ -303,9 +305,11 @@ class ErmeteConnectionManager(
         object : org.webrtc.SdpObserver {
           override fun onCreateSuccess(description: SessionDescription?) {
             description ?: return
-            pc.setLocalDescription(noopSdpObserver, description)
-            val offer = JSONObject().put("type", "offer").put("sdp", description.description)
-            addDebugLog("Sending SDP offer to signaling server")
+            val offerDescription =
+                SessionDescription(description.type, withOpusDtxEnabled(description.description))
+            pc.setLocalDescription(noopSdpObserver, offerDescription)
+            val offer = JSONObject().put("type", "offer").put("sdp", offerDescription.description)
+            addDebugLog("Sending SDP offer to signaling server (Opus DTX enabled)")
             ws?.send(offer.toString())
           }
 
@@ -320,7 +324,47 @@ class ErmeteConnectionManager(
 
           override fun onSetFailure(error: String?) = Unit
         },
-        MediaConstraints())
+        buildOfferConstraints())
+  }
+
+  private fun buildAudioSourceConstraints(): MediaConstraints {
+    return MediaConstraints().apply {
+      mandatory.add(MediaConstraints.KeyValuePair("googNoiseSuppression", "true"))
+      mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl", "true"))
+      mandatory.add(MediaConstraints.KeyValuePair("googHighpassFilter", "true"))
+      mandatory.add(MediaConstraints.KeyValuePair("googEchoCancellation", "true"))
+    }
+  }
+
+  private fun buildOfferConstraints(): MediaConstraints {
+    return MediaConstraints().apply {
+      mandatory.add(MediaConstraints.KeyValuePair("VoiceActivityDetection", "true"))
+    }
+  }
+
+  private fun withOpusDtxEnabled(sdp: String): String {
+    val lines = sdp.split("\r\n").toMutableList()
+    val opusPayloadType =
+        lines.firstOrNull { it.startsWith("a=rtpmap:") && it.contains(" opus/48000", ignoreCase = true) }
+            ?.substringAfter("a=rtpmap:")
+            ?.substringBefore(' ')
+
+    if (opusPayloadType.isNullOrBlank()) return sdp
+
+    val fmtpPrefixForOpus = "$OPUS_FMTP_PREFIX$opusPayloadType "
+    val fmtpIndex = lines.indexOfFirst { it.startsWith(fmtpPrefixForOpus) }
+    if (fmtpIndex >= 0) {
+      if (!lines[fmtpIndex].contains(OPUS_DTX_PARAMETER)) {
+        lines[fmtpIndex] = "${lines[fmtpIndex]};$OPUS_DTX_PARAMETER"
+      }
+      return lines.joinToString("\r\n")
+    }
+
+    val rtpMapIndex = lines.indexOfFirst { it.startsWith("a=rtpmap:$opusPayloadType") }
+    if (rtpMapIndex >= 0) {
+      lines.add(rtpMapIndex + 1, "$fmtpPrefixForOpus$OPUS_DTX_PARAMETER")
+    }
+    return lines.joinToString("\r\n")
   }
 
   private val webSocketListener =
