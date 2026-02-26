@@ -32,6 +32,7 @@ class ErmeteConnectionManager(
     private val scope: CoroutineScope,
     private val onConnectionStateChanged: (ServerConnectionState) -> Unit,
     private val onDebugLog: (ConnectionDebugLogEntry) -> Unit,
+    private val onCommandReceived: (WearableCommand) -> Unit,
 ) {
   companion object {
     private const val TAG = "ErmeteConnection"
@@ -53,6 +54,12 @@ class ErmeteConnectionManager(
   private var cmdDataChannel: org.webrtc.DataChannel? = null
 
   private var connectionState = ServerConnectionState.DISCONNECTED
+
+  sealed interface WearableCommand {
+    data object Snapshot : WearableCommand
+
+    data class PeriodicSnapshot(val shouldStart: Boolean) : WearableCommand
+  }
 
   fun connect(serverHttpUrl: String, ermetePsk: String) {
     close()
@@ -272,6 +279,7 @@ class ErmeteConnectionManager(
                         val payload = String(bytes)
                         addDebugLog("Data channel message: $payload")
                         Log.d(TAG, "DataChannel recv: $payload")
+                        handleIncomingDataChannelMessage(payload)
                       }
                     })
               }
@@ -440,6 +448,58 @@ class ErmeteConnectionManager(
           super.onClosed(webSocket, code, reason)
         }
       }
+
+  private fun handleIncomingDataChannelMessage(payload: String) {
+    val command = parseCommand(payload) ?: run {
+      addDebugLog("Ignoring unknown command payload")
+      return
+    }
+    when (command) {
+      WearableCommand.Snapshot -> addDebugLog("Received command Snapshot")
+      is WearableCommand.PeriodicSnapshot -> {
+        val mode = if (command.shouldStart) "start" else "stop"
+        addDebugLog("Received command PeriodicSnapshot ($mode)")
+      }
+    }
+    onCommandReceived(command)
+  }
+
+  private fun parseCommand(payload: String): WearableCommand? {
+    val trimmed = payload.trim()
+    if (trimmed.equals("Snapshot", ignoreCase = true)) {
+      return WearableCommand.Snapshot
+    }
+    if (trimmed.equals("PeriodicSnapshot:start", ignoreCase = true)) {
+      return WearableCommand.PeriodicSnapshot(shouldStart = true)
+    }
+    if (trimmed.equals("PeriodicSnapshot:stop", ignoreCase = true)) {
+      return WearableCommand.PeriodicSnapshot(shouldStart = false)
+    }
+
+    val json = runCatching { JSONObject(trimmed) }.getOrNull() ?: return null
+    val type =
+        json.optString("type").ifBlank { json.optString("command") }.ifBlank {
+          json.optString("name")
+        }
+
+    return when {
+      type.equals("Snapshot", ignoreCase = true) -> WearableCommand.Snapshot
+      type.equals("PeriodicSnapshot", ignoreCase = true) -> {
+        val action =
+            json.optString("action")
+                .ifBlank { json.optString("mode") }
+                .ifBlank { json.optString("value") }
+        when {
+          action.equals("start", ignoreCase = true) || json.optBoolean("enabled", false) ->
+              WearableCommand.PeriodicSnapshot(shouldStart = true)
+          action.equals("stop", ignoreCase = true) ->
+              WearableCommand.PeriodicSnapshot(shouldStart = false)
+          else -> null
+        }
+      }
+      else -> null
+    }
+  }
 
   private fun setConnectionState(newState: ServerConnectionState) {
     if (connectionState == newState) return
