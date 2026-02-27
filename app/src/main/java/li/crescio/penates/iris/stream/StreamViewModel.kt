@@ -72,12 +72,13 @@ class StreamViewModel(
         ErmeteConnectionManager(
                 context = getApplication(),
                 scope = viewModelScope,
-                onConnectionStateChanged = { connectionState ->
-                  _uiState.update { current -> current.copy(serverConnectionState = connectionState) }
-                },
-                onDebugLog = ::appendConnectionDebugLog,
-            )
-            .also { it.connect(serverHttpUrl, ermetePsk) }
+            onConnectionStateChanged = { connectionState ->
+              _uiState.update { current -> current.copy(serverConnectionState = connectionState) }
+            },
+            onDebugLog = ::appendConnectionDebugLog,
+            onCommandReceived = ::handleWearableCommand,
+        )
+        .also { it.connect(serverHttpUrl, ermetePsk) }
 
     val newSession =
         Wearables.startStreamSession(
@@ -144,6 +145,22 @@ class StreamViewModel(
   fun stopAutoCapture() {
     autoCaptureJob?.cancel()
     autoCaptureJob = null
+  }
+
+  private fun handleWearableCommand(command: ErmeteConnectionManager.WearableCommand) {
+    val wearablesState = wearablesViewModel.uiState.value
+    when (command) {
+      ErmeteConnectionManager.WearableCommand.Snapshot -> {
+        capturePhoto(wearablesState.serverHttpUrl, wearablesState.ermetePsk)
+      }
+      is ErmeteConnectionManager.WearableCommand.PeriodicSnapshot -> {
+        if (command.shouldStart) {
+          startAutoCapture()
+        } else {
+          stopAutoCapture()
+        }
+      }
+    }
   }
 
 
