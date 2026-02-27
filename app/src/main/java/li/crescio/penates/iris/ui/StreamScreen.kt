@@ -71,10 +71,6 @@ fun StreamScreen(
   LaunchedEffect(wearablesState.serverHttpUrl, wearablesState.ermetePsk) {
     streamViewModel.startStream(wearablesState.serverHttpUrl, wearablesState.ermetePsk)
   }
-  LaunchedEffect(wearablesState.photoIntervalMs) {
-    streamViewModel.startAutoCapture(wearablesState.photoIntervalMs)
-  }
-
   HorizontalPager(state = pagerState, modifier = modifier.fillMaxSize()) { page ->
     when (page) {
       STREAM_PAGE ->
