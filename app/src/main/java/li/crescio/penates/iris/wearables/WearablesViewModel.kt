@@ -102,6 +102,8 @@ class WearablesViewModel(application: Application) : AndroidViewModel(applicatio
 
   fun setErmetePsk(psk: String) = updateState { copy(ermetePsk = psk) }
 
+  fun setDescription(description: String) = updateState { copy(description = description) }
+
   private fun observeActiveDevice() {
     activeDeviceJob =
         viewModelScope.launch {
