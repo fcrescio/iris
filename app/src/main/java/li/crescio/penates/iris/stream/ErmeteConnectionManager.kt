@@ -54,6 +54,7 @@ class ErmeteConnectionManager(
   private var cmdDataChannel: org.webrtc.DataChannel? = null
 
   private var connectionState = ServerConnectionState.DISCONNECTED
+  private var currentDescription: String = ""
 
   sealed interface WearableCommand {
     data object Snapshot : WearableCommand
@@ -61,8 +62,9 @@ class ErmeteConnectionManager(
     data class PeriodicSnapshot(val shouldStart: Boolean) : WearableCommand
   }
 
-  fun connect(serverHttpUrl: String, ermetePsk: String) {
+  fun connect(serverHttpUrl: String, ermetePsk: String, description: String) {
     close()
+    currentDescription = description
 
     val trimmedPsk = ermetePsk.trim()
     if (trimmedPsk.isEmpty()) {
@@ -182,6 +184,13 @@ class ErmeteConnectionManager(
         org.webrtc.DataChannel.Buffer(java.nio.ByteBuffer.wrap(payload.toString().toByteArray()), false))
   }
 
+  fun sendIdentity() {
+    val payload = JSONObject().put("type", "identity").put("description", currentDescription)
+    addDebugLog("Sending identity on cmd data channel")
+    cmdDataChannel?.send(
+        org.webrtc.DataChannel.Buffer(java.nio.ByteBuffer.wrap(payload.toString().toByteArray()), false))
+  }
+
   fun close() {
     addDebugLog("Closing connection manager resources")
     ws?.close(1000, "closing")
@@ -191,6 +200,7 @@ class ErmeteConnectionManager(
 
     cmdDataChannel?.close()
     cmdDataChannel = null
+    currentDescription = ""
     peerConnection?.close()
     peerConnection = null
     audioTrack?.dispose()
@@ -271,6 +281,9 @@ class ErmeteConnectionManager(
 
                       override fun onStateChange() {
                         addDebugLog("Data channel state changed: ${dataChannel.state()}")
+                        if (dataChannel.state() == org.webrtc.DataChannel.State.OPEN) {
+                          sendIdentity()
+                        }
                       }
 
                       override fun onMessage(buffer: org.webrtc.DataChannel.Buffer) {
@@ -395,6 +408,7 @@ class ErmeteConnectionManager(
                         noopSdpObserver,
                         SessionDescription(SessionDescription.Type.ANSWER, sdp))
                     sendPing()
+                    sendIdentity()
                   }
                   "candidate" -> {
                     addDebugLog("Received remote ICE candidate")

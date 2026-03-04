@@ -59,6 +59,7 @@
     <string name="getting_started_continue" description="Continue button">Continue</string>
     <string name="settings_server_http_url_label" description="Server HTTP URL label">Server URL</string>
     <string name="settings_ermete_psk_label" description="Ermete PSK label">Ermete PSK</string>
+    <string name="settings_description_label" description="Identity description label">Descrizione</string>
     <string name="webrtc_status_label" description="WebRTC connection status label">Wearable: %1$s · Server: %2$s</string>
     <string name="camera_ready_label" description="Camera capture readiness label">Camera ready</string>
     <string name="camera_not_ready_label" description="Camera capture readiness label">Camera not ready</string>

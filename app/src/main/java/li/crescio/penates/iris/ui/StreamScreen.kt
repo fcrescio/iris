@@ -68,8 +68,12 @@ fun StreamScreen(
   val wearablesState by wearablesViewModel.uiState.collectAsStateWithLifecycle()
   val pagerState = rememberPagerState(initialPage = STREAM_PAGE, pageCount = { 2 })
 
-  LaunchedEffect(wearablesState.serverHttpUrl, wearablesState.ermetePsk) {
-    streamViewModel.startStream(wearablesState.serverHttpUrl, wearablesState.ermetePsk)
+  LaunchedEffect(wearablesState.serverHttpUrl, wearablesState.ermetePsk, wearablesState.description) {
+    streamViewModel.startStream(
+        wearablesState.serverHttpUrl,
+        wearablesState.ermetePsk,
+        wearablesState.description,
+    )
   }
   HorizontalPager(state = pagerState, modifier = modifier.fillMaxSize()) { page ->
     when (page) {
@@ -93,6 +97,8 @@ fun StreamScreen(
               onServerHttpUrlChange = wearablesViewModel::setServerHttpUrl,
               ermetePsk = wearablesState.ermetePsk,
               onErmetePskChange = wearablesViewModel::setErmetePsk,
+              description = wearablesState.description,
+              onDescriptionChange = wearablesViewModel::setDescription,
               connectionDebugLog = streamState.connectionDebugLog,
               onClearConnectionDebugLog = streamViewModel::clearConnectionDebugLog,
           )

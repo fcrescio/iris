@@ -28,6 +28,7 @@ data class WearablesUiState(
     val photoIntervalMs: Long = 10000L,
     val serverHttpUrl: String = BuildConfig.DEFAULT_WEBRTC_ADDRESS,
     val ermetePsk: String = BuildConfig.DEFAULT_ERMETE_PSK,
+    val description: String = "",
 ) {
   val isRegistered: Boolean
     get() = registrationState is RegistrationState.Registered || hasMockDevices

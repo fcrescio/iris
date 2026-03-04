@@ -61,7 +61,7 @@ class StreamViewModel(
   private var connectionManager: ErmeteConnectionManager? = null
   private var lastCaptureBlockReason: String? = null
 
-  fun startStream(serverHttpUrl: String, ermetePsk: String) {
+  fun startStream(serverHttpUrl: String, ermetePsk: String, description: String) {
     stopStream()
     appendConnectionDebugLog(
         ConnectionDebugLogEntry(
@@ -78,7 +78,7 @@ class StreamViewModel(
             onDebugLog = ::appendConnectionDebugLog,
             onCommandReceived = ::handleWearableCommand,
         )
-        .also { it.connect(serverHttpUrl, ermetePsk) }
+        .also { it.connect(serverHttpUrl, ermetePsk, description) }
 
     val newSession =
         Wearables.startStreamSession(

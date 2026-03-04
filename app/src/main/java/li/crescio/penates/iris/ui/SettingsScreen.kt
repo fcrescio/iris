@@ -47,6 +47,8 @@ fun SettingsScreen(
     onServerHttpUrlChange: (String) -> Unit,
     ermetePsk: String,
     onErmetePskChange: (String) -> Unit,
+    description: String,
+    onDescriptionChange: (String) -> Unit,
     connectionDebugLog: List<ConnectionDebugLogEntry> = emptyList(),
     onClearConnectionDebugLog: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -90,6 +92,13 @@ fun SettingsScreen(
         onValueChange = onErmetePskChange,
         label = { Text(stringResource(R.string.settings_ermete_psk_label)) },
         singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    OutlinedTextField(
+        value = description,
+        onValueChange = onDescriptionChange,
+        label = { Text(stringResource(R.string.settings_description_label)) },
         modifier = Modifier.fillMaxWidth(),
     )
 
