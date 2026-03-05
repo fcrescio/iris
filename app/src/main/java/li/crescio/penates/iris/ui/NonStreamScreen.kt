@@ -149,6 +149,8 @@ fun NonStreamScreen(
               onServerHttpUrlChange = viewModel::setServerHttpUrl,
               ermetePsk = state.ermetePsk,
               onErmetePskChange = viewModel::setErmetePsk,
+              description = state.description,
+              onDescriptionChange = viewModel::setDescription,
           )
         }
       }
